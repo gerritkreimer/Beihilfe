@@ -127,7 +127,7 @@
                             <th class="p-4 font-semibold">Bezahlt am</th>
                             <th id="thLbv" class="p-4 font-semibold text-right">LBV (70%) <span class="block text-[10px] text-gray-400 font-normal">Klick auf Betrag</span></th>
                             <th id="thPkv" class="p-4 font-semibold text-right">PKV (30%) <span class="block text-[10px] text-gray-400 font-normal">Klick auf Betrag</span></th>
-                            <th class="p-4 font-semibold text-center">Aktion</th>
+                            <th class="p-4 font-semibold text-center">Aktionen</th>
                         </tr>
                     </thead>
                     <tbody id="tableBody" class="divide-y divide-gray-100 text-sm">
@@ -138,14 +138,15 @@
         </div>
     </div>
 
-    <!-- Modal: Neue Rechnung erfassen -->
+    <!-- Modal: Rechnung erfassen oder bearbeiten -->
     <div id="invoiceModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-gray-900">Neue Rechnung erfassen</h3>
+                <h3 id="invoiceModalTitle" class="text-lg font-bold text-gray-900">Neue Rechnung erfassen</h3>
                 <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <form id="invoiceForm" onsubmit="addInvoice(event)" class="space-y-4">
+            <form id="invoiceForm" onsubmit="saveInvoice(event)" class="space-y-4">
+                <input type="hidden" id="editInvoiceId">
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-medium text-gray-700 mb-1">Termin</label>
@@ -171,12 +172,18 @@
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Bezahlt am (an Arzt, optional)</label>
-                    <input type="date" id="bezahltAm" class="w-full border border-gray-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs font-medium text-gray-700">Bezahlt am (an Arzt)</label>
+                        <button type="button" onclick="setTodayPaid()" class="text-[11px] text-blue-600 hover:underline">Heute</button>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="date" id="bezahltAm" class="w-full border border-gray-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        <button type="button" onclick="document.getElementById('bezahltAm').value=''" title="Feld leeren" class="px-3 border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50"><i class="fa-solid fa-eraser"></i></button>
+                    </div>
                 </div>
                 <div class="flex justify-end gap-3 mt-6">
                     <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-100">Abbrechen</button>
-                    <button type="submit" class="px-4 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 shadow-sm">Speichern</button>
+                    <button type="submit" id="saveInvoiceBtn" class="px-4 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 shadow-sm">Speichern</button>
                 </div>
             </form>
         </div>
@@ -193,7 +200,10 @@
                 <input type="hidden" id="payoutDocId">
                 <input type="hidden" id="payoutType">
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Eingangsdatum (tt.mm.jjjj)</label>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs font-medium text-gray-700">Eingangsdatum (tt.mm.jjjj)</label>
+                        <button type="button" onclick="setTodayPayout()" class="text-[11px] text-blue-600 hover:underline">Heute</button>
+                    </div>
                     <input type="date" id="payoutDateInput" class="w-full border border-gray-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" required>
                 </div>
                 <div class="flex justify-between items-center pt-2">
@@ -226,7 +236,7 @@
         let currentUser = null;
         let invoices = [];
         let isRegistering = false;
-        let userBeihilfeRate = 70; // Standardwert 70%
+        let userBeihilfeRate = 70; // Standard 70%
 
         // AUTH-LOGIK
         function toggleAuthMode() {
@@ -252,7 +262,6 @@
                     if (name) {
                         await cred.user.updateProfile({ displayName: name });
                     }
-                    // Profil-Dokument mit Standard-Beihilfesatz anlegen
                     await db.collection('users').doc(cred.user.uid).set({
                         beihilfeRate: 70
                     }, { merge: true });
@@ -281,7 +290,6 @@
                 document.getElementById('appSection').classList.remove('hidden');
                 document.getElementById('userDisplay').innerText = user.displayName ? `${user.displayName} (${user.email})` : user.email;
                 
-                // Benutzerprofil abrufen (Beihilfesatz)
                 try {
                     const doc = await db.collection('users').doc(user.uid).get();
                     if (doc.exists && doc.data().beihilfeRate) {
@@ -407,18 +415,29 @@
                     </span>`;
 
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-gray-50/50 transition";
+                tr.className = "hover:bg-gray-50/75 transition";
                 tr.innerHTML = `
                     <td class="p-4 text-gray-600">${formatDateDE(inv.termin) || '-'}</td>
                     <td class="p-4 text-gray-600">${formatDateDE(inv.reDatum) || '-'}</td>
-                    <td class="p-4 font-medium text-gray-900">${inv.aussteller}</td>
+                    <td class="p-4 font-medium text-gray-900 cursor-pointer hover:text-blue-600" onclick="openEditModal('${inv.id}')" title="Klicken zum Bearbeiten">
+                        ${inv.aussteller} <i class="fa-solid fa-pen text-[11px] text-gray-300 ml-1"></i>
+                    </td>
                     <td class="p-4 text-right font-semibold text-gray-900">${betrag.toFixed(2)} €</td>
                     <td class="p-4 text-gray-600">${formatDateDE(inv.zahlungsziel) || '-'}</td>
-                    <td class="p-4 text-gray-600">${inv.bezahltAm ? '<span class="text-green-600 font-medium"><i class="fa-solid fa-check mr-1"></i>' + formatDateDE(inv.bezahltAm) + '</span>' : '<span class="text-amber-500 text-xs bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Offen</span>'}</td>
+                    <td class="p-4 text-gray-600 cursor-pointer" onclick="openEditModal('${inv.id}')" title="Klicken zum Ändern des Zahlungsdatums">
+                        ${inv.bezahltAm ? '<span class="text-green-600 font-medium inline-flex items-center gap-1"><i class="fa-solid fa-check text-xs"></i>' + formatDateDE(inv.bezahltAm) + '</span>' : '<span class="text-amber-500 text-xs bg-amber-50 px-2 py-0.5 rounded border border-amber-200 hover:bg-amber-100">Offen</span>'}
+                    </td>
                     <td class="p-4 text-right">${lbvHtml}</td>
                     <td class="p-4 text-right">${pkvHtml}</td>
                     <td class="p-4 text-center">
-                        <button onclick="deleteInvoice('${inv.id}')" class="text-gray-400 hover:text-red-600 transition p-1"><i class="fa-solid fa-trash-can"></i></button>
+                        <div class="inline-flex items-center gap-2">
+                            <button onclick="openEditModal('${inv.id}')" title="Vorgang bearbeiten" class="text-gray-400 hover:text-blue-600 transition p-1.5 rounded-lg hover:bg-blue-50">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <button onclick="deleteInvoice('${inv.id}')" title="Löschen" class="text-gray-400 hover:text-red-600 transition p-1.5 rounded-lg hover:bg-red-50">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -438,26 +457,67 @@
         }
 
         // MODAL NEUE RECHNUNG
-        function openModal() { document.getElementById('invoiceModal').classList.remove('hidden'); }
-        function closeModal() { document.getElementById('invoiceModal').classList.add('hidden'); document.getElementById('invoiceForm').reset(); }
+        function openModal() {
+            document.getElementById('editInvoiceId').value = '';
+            document.getElementById('invoiceModalTitle').innerText = 'Neue Rechnung erfassen';
+            document.getElementById('saveInvoiceBtn').innerText = 'Speichern';
+            document.getElementById('invoiceForm').reset();
+            document.getElementById('invoiceModal').classList.remove('hidden');
+        }
 
-        async function addInvoice(e) {
+        // MODAL VORGANG BEARBEITEN
+        function openEditModal(docId) {
+            const inv = invoices.find(i => i.id === docId);
+            if (!inv) return;
+
+            document.getElementById('editInvoiceId').value = docId;
+            document.getElementById('invoiceModalTitle').innerText = 'Rechnung bearbeiten';
+            document.getElementById('saveInvoiceBtn').innerText = 'Änderungen speichern';
+
+            document.getElementById('termin').value = inv.termin || '';
+            document.getElementById('reDatum').value = inv.reDatum || '';
+            document.getElementById('aussteller').value = inv.aussteller || '';
+            document.getElementById('betrag').value = inv.betrag || '';
+            document.getElementById('zahlungsziel').value = inv.zahlungsziel || '';
+            document.getElementById('bezahltAm').value = inv.bezahltAm || '';
+
+            document.getElementById('invoiceModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('invoiceModal').classList.add('hidden');
+            document.getElementById('invoiceForm').reset();
+        }
+
+        function setTodayPaid() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('bezahltAm').value = today;
+        }
+
+        async function saveInvoice(e) {
             e.preventDefault();
             if (!currentUser) return;
 
-            const newInv = {
+            const editId = document.getElementById('editInvoiceId').value;
+            const invoiceData = {
                 termin: document.getElementById('termin').value,
                 reDatum: document.getElementById('reDatum').value,
                 aussteller: document.getElementById('aussteller').value,
                 betrag: parseFloat(document.getElementById('betrag').value),
                 zahlungsziel: document.getElementById('zahlungsziel').value,
-                bezahltAm: document.getElementById('bezahltAm').value,
-                lbvDate: null,
-                pkvDate: null,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                bezahltAm: document.getElementById('bezahltAm').value || null
             };
 
-            await db.collection('users').doc(currentUser.uid).collection('invoices').add(newInv);
+            if (editId) {
+                // Vorgang aktualisieren
+                await db.collection('users').doc(currentUser.uid).collection('invoices').doc(editId).update(invoiceData);
+            } else {
+                // Neue Rechnung anlegen
+                invoiceData.lbvDate = null;
+                invoiceData.pkvDate = null;
+                invoiceData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                await db.collection('users').doc(currentUser.uid).collection('invoices').add(invoiceData);
+            }
             closeModal();
         }
 
@@ -479,6 +539,11 @@
 
         function closePayoutModal() {
             document.getElementById('payoutModal').classList.add('hidden');
+        }
+
+        function setTodayPayout() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('payoutDateInput').value = today;
         }
 
         async function savePayout(e) {
