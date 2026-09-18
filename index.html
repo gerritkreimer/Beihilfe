@@ -9,14 +9,14 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Firebase SDKs (Compat-Version für einfache Einbindung ohne Build-Tools) -->
+    <!-- Firebase SDKs (Compat-Version für GitHub Pages) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans min-h-screen">
 
-    <!-- 1. LOGIN / REGISTRIERUNGS-BEREICH (Sichtbar wenn nicht eingeloggt) -->
+    <!-- 1. LOGIN / REGISTRIERUNGS-BEREICH -->
     <div id="authSection" class="min-h-screen flex items-center justify-center p-4">
         <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 max-w-md w-full">
             <div class="text-center mb-6">
@@ -58,7 +58,7 @@
         </div>
     </div>
 
-    <!-- 2. HAUPT-APP (Sichtbar nur wenn erfolgreich eingeloggt) -->
+    <!-- 2. HAUPT-APP (Sichtbar nach erfolgreicher Anmeldung) -->
     <div id="appSection" class="hidden max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <!-- Header -->
         <header class="flex flex-col sm:flex-row justify-between items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
@@ -79,7 +79,7 @@
             </div>
         </header>
 
-        <!-- Statistik-Karten -->
+        <!-- Statistik-Karten mit Erstattungsstatus -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
                 <p class="text-sm font-medium text-gray-500">Gesamtsumme Rechnungen</p>
@@ -116,14 +116,14 @@
                         </tr>
                     </thead>
                     <tbody id="tableBody" class="divide-y divide-gray-100 text-sm">
-                        <!-- Wird per JS gefüllt -->
+                        <!-- Einträge -->
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <!-- Modal zum Hinzufügen von Rechnungen -->
+    <!-- Modal: Neue Rechnung erfassen -->
     <div id="invoiceModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl">
             <div class="flex justify-between items-center mb-4">
@@ -192,17 +192,16 @@
         </div>
     </div>
 
+    <!-- JavaScript Logik -->
     <script>
-        // =========================================================================
-        // HIER IHRE FIREBASE-DATEN EINSETZEN (Zeilen 300 bis 308)
-        // =========================================================================
+        // IHRE BEREITS EINGEBAUTE FIREBASE KONFIGURATION:
         const firebaseConfig = {
-            apiKey: "HIER_IHREN_API_KEY_EINSETZEN",
-            authDomain: "IHR-PROJEKT.firebaseapp.com",
-            projectId: "IHR-PROJEKT-ID",
-            storageBucket: "IHR-PROJEKT.appspot.com",
-            messagingSenderId: "1234567890",
-            appId: "1:1234567890:web:abcdef123456"
+            apiKey: "AIzaSyDOeM9ePDWeKiHSj4Mgi6c5bgUHTxMGNQM",
+            authDomain: "beihilfe-app-ce6fc.firebaseapp.com",
+            projectId: "beihilfe-app-ce6fc",
+            storageBucket: "beihilfe-app-ce6fc.firebasestorage.app",
+            messagingSenderId: "630498591674",
+            appId: "1:630498591674:web:272b1dd0077bfe0fd11383"
         };
 
         // Firebase initialisieren
@@ -235,12 +234,18 @@
                 if (isRegistering) {
                     const name = document.getElementById('authName').value;
                     const cred = await auth.createUserWithEmailAndPassword(email, password);
-                    await cred.user.updateProfile({ displayName: name });
+                    if (name) {
+                        await cred.user.updateProfile({ displayName: name });
+                    }
                 } else {
                     await auth.signInWithEmailAndPassword(email, password);
                 }
             } catch (err) {
-                errDiv.innerText = "Fehler: " + err.message;
+                let msg = err.message;
+                if (err.code === 'auth/weak-password') msg = 'Das Passwort muss mindestens 6 Zeichen lang sein.';
+                if (err.code === 'auth/email-already-in-use') msg = 'Diese E-Mail-Adresse ist bereits registriert.';
+                if (err.code === 'auth/invalid-credential') msg = 'E-Mail-Adresse oder Passwort ungültig.';
+                errDiv.innerText = "Fehler: " + msg;
                 errDiv.classList.remove('hidden');
             }
         }
@@ -264,12 +269,11 @@
             }
         });
 
-        // ECHTZEIT-DATENBANK LISTEN (Nur für den angemeldeten Nutzer!)
+        // ECHTZEIT-DATENBANK-ABRUF (Strikte Trennung je Nutzer über die eigene UID)
         let unsubscribe = null;
         function listenToInvoices() {
             if (unsubscribe) unsubscribe();
             
-            // Verzeichnis: users/{Nutzer-ID}/invoices
             unsubscribe = db.collection('users').doc(currentUser.uid).collection('invoices')
                 .orderBy('reDatum', 'desc')
                 .onSnapshot(snapshot => {
@@ -283,7 +287,7 @@
                 });
         }
 
-        // FORMATIERUNG dd.mm.yyyy
+        // Datum im Format dd.mm.yyyy formatieren
         function formatDateDE(dateStr) {
             if (!dateStr) return '';
             const parts = dateStr.split('-');
@@ -304,7 +308,7 @@
             let totalPkvPaid = 0;
 
             if (invoices.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">Keine Rechnungen eingetragen. Klicken Sie auf „Neue Rechnung“.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">Keine Rechnungen vorhanden. Klicken Sie auf „Neue Rechnung“.</td></tr>`;
             }
 
             invoices.forEach(inv => {
