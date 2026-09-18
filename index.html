@@ -64,7 +64,7 @@
     <!-- 2. HAUPT-APP -->
     <div id="appSection" class="hidden max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <!-- Header -->
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <div>
                 <h1 class="text-2xl font-bold text-gray-900"><i class="fa-solid fa-file-medical text-blue-600 mr-2"></i> Beihilfe- & Rechnungsmanager</h1>
                 <p class="text-sm text-gray-500 mt-1">Eingeloggt als: <span id="userDisplay" class="font-semibold text-gray-800"></span></p>
@@ -94,22 +94,73 @@
             </div>
         </header>
 
-        <!-- Statistik-Karten -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-                <p class="text-sm font-medium text-gray-500">Gesamtsumme Rechnungen</p>
-                <p id="totalSum" class="text-2xl font-bold text-gray-900 mt-1">0,00 €</p>
-                <p id="totalSumPaid" class="text-xs text-gray-400 mt-1">Bereits erstattet: 0,00 €</p>
+        <!-- NEUER STATISTIK-BEREICH: Gesamtsumme oben, Rot & Grün gleich groß darunter -->
+        <div class="space-y-4 mb-8">
+            <!-- 1. Gesamtsumme Schwarz zentriert darüber -->
+            <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col sm:flex-row justify-between items-center text-center sm:text-left">
+                <div>
+                    <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Gesamtvolumen Rechnungen</span>
+                    <h2 class="text-sm font-medium text-gray-500">Summe aller erfassten Vorgänge</h2>
+                </div>
+                <div class="mt-2 sm:mt-0">
+                    <span id="totalSum" class="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">0,00 €</span>
+                </div>
             </div>
-            <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-                <p id="cardLbvTitle" class="text-sm font-medium text-gray-500">Erwartet LBV (70%)</p>
-                <p id="totalLbv" class="text-2xl font-bold text-blue-600 mt-1">0,00 €</p>
-                <p id="totalLbvPaid" class="text-xs text-gray-400 mt-1">Bereits erhalten: 0,00 €</p>
+
+            <!-- 2. Gleich groß: Rot (Offen) und Grün (Erstattet) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Rot: Noch ausstehend -->
+                <div class="bg-red-50/60 border border-red-200/80 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold uppercase tracking-wider text-red-600 flex items-center gap-2">
+                            <i class="fa-solid fa-clock-rotate-left"></i> Noch offen / ausstehend
+                        </span>
+                        <span id="openPercentBadge" class="text-xs font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">0%</span>
+                    </div>
+                    <div class="my-2">
+                        <p id="totalOpen" class="text-3xl sm:text-4xl font-black text-red-600">0,00 €</p>
+                    </div>
+                    <p class="text-xs text-red-500 font-medium">Betrag, der von Beihilfe oder PKV noch nicht überwiesen wurde</p>
+                </div>
+
+                <!-- Grün: Bereits erstattet -->
+                <div class="bg-emerald-50/60 border border-emerald-200/80 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold uppercase tracking-wider text-emerald-700 flex items-center gap-2">
+                            <i class="fa-solid fa-circle-check"></i> Bereits erstattet
+                        </span>
+                        <span id="paidPercentBadge" class="text-xs font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">0%</span>
+                    </div>
+                    <div class="my-2">
+                        <p id="totalPaid" class="text-3xl sm:text-4xl font-black text-emerald-600">0,00 €</p>
+                    </div>
+                    <p class="text-xs text-emerald-600 font-medium">Geldeingang von LBV und PKV bereits verbucht</p>
+                </div>
             </div>
-            <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-                <p id="cardPkvTitle" class="text-sm font-medium text-gray-500">Erwartet PKV (30%)</p>
-                <p id="totalPkv" class="text-2xl font-bold text-indigo-600 mt-1">0,00 €</p>
-                <p id="totalPkvPaid" class="text-xs text-gray-400 mt-1">Bereits erhalten: 0,00 €</p>
+
+            <!-- 3. Details: Aufteilung LBV & PKV -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex justify-between items-center">
+                    <div>
+                        <p id="cardLbvTitle" class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Erwartet LBV (70%)</p>
+                        <p id="totalLbv" class="text-xl font-bold text-blue-600 mt-0.5">0,00 €</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-gray-400">Erhalten</p>
+                        <p id="totalLbvPaid" class="text-sm font-semibold text-gray-700">0,00 €</p>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex justify-between items-center">
+                    <div>
+                        <p id="cardPkvTitle" class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Erwartet PKV (30%)</p>
+                        <p id="totalPkv" class="text-xl font-bold text-indigo-600 mt-0.5">0,00 €</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-gray-400">Erhalten</p>
+                        <p id="totalPkvPaid" class="text-sm font-semibold text-gray-700">0,00 €</p>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -443,17 +494,29 @@
                 tbody.appendChild(tr);
             });
 
-            // Statistiken
-            document.getElementById('totalSum').innerText = totalSum.toFixed(2) + ' €';
-            document.getElementById('totalSumPaid').innerText = `Bereits erstattet: ${totalSumPaid.toFixed(2)} €`;
+            // Statistiken berechnen
+            const totalOpen = Math.max(0, totalSum - totalSumPaid);
+            const paidPct = totalSum > 0 ? Math.round((totalSumPaid / totalSum) * 100) : 0;
+            const openPct = totalSum > 0 ? Math.round((totalOpen / totalSum) * 100) : 0;
 
+            // Gesamtsumme Schwarz
+            document.getElementById('totalSum').innerText = totalSum.toFixed(2) + ' €';
+
+            // Rot & Grün
+            document.getElementById('totalOpen').innerText = totalOpen.toFixed(2) + ' €';
+            document.getElementById('openPercentBadge').innerText = openPct + '%';
+
+            document.getElementById('totalPaid').innerText = totalSumPaid.toFixed(2) + ' €';
+            document.getElementById('paidPercentBadge').innerText = paidPct + '%';
+
+            // Detailkarten LBV & PKV
             document.getElementById('totalLbv').innerText = totalLbv.toFixed(2) + ' €';
-            const lbvPercent = totalLbv > 0 ? Math.round((totalLbvPaid / totalLbv) * 100) : 0;
-            document.getElementById('totalLbvPaid').innerText = `Bereits erhalten: ${totalLbvPaid.toFixed(2)} € (${lbvPercent}%)`;
+            const lbvPctCalculated = totalLbv > 0 ? Math.round((totalLbvPaid / totalLbv) * 100) : 0;
+            document.getElementById('totalLbvPaid').innerText = `${totalLbvPaid.toFixed(2)} € (${lbvPctCalculated}%)`;
 
             document.getElementById('totalPkv').innerText = totalPkv.toFixed(2) + ' €';
-            const pkvPercent = totalPkv > 0 ? Math.round((totalPkvPaid / totalPkv) * 100) : 0;
-            document.getElementById('totalPkvPaid').innerText = `Bereits erhalten: ${totalPkvPaid.toFixed(2)} € (${pkvPercent}%)`;
+            const pkvPctCalculated = totalPkv > 0 ? Math.round((totalPkvPaid / totalPkv) * 100) : 0;
+            document.getElementById('totalPkvPaid').innerText = `${totalPkvPaid.toFixed(2)} € (${pkvPctCalculated}%)`;
         }
 
         // MODAL NEUE RECHNUNG
@@ -509,10 +572,8 @@
             };
 
             if (editId) {
-                // Vorgang aktualisieren
                 await db.collection('users').doc(currentUser.uid).collection('invoices').doc(editId).update(invoiceData);
             } else {
-                // Neue Rechnung anlegen
                 invoiceData.lbvDate = null;
                 invoiceData.pkvDate = null;
                 invoiceData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
