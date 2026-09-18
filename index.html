@@ -9,7 +9,7 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- SheetJS für den direkten Excel-Export (.xlsx) -->
+    <!-- SheetJS für Excel-Export -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <!-- Firebase SDKs -->
@@ -64,20 +64,32 @@
     <!-- 2. HAUPT-APP -->
     <div id="appSection" class="hidden max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <!-- Header -->
-        <header class="flex flex-col sm:flex-row justify-between items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <div>
                 <h1 class="text-2xl font-bold text-gray-900"><i class="fa-solid fa-file-medical text-blue-600 mr-2"></i> Beihilfe- & Rechnungsmanager</h1>
-                <p class="text-sm text-gray-500 mt-1">Eingeloggt als: <span id="userDisplay" class="font-medium text-gray-800"></span></p>
+                <p class="text-sm text-gray-500 mt-1">Eingeloggt als: <span id="userDisplay" class="font-semibold text-gray-800"></span></p>
             </div>
-            <div class="mt-4 sm:mt-0 flex gap-3">
+            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                <!-- Beihilfesatz Auswahl -->
+                <div class="bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 flex items-center gap-2">
+                    <label for="beihilfeRateSelect" class="text-xs font-semibold text-gray-600">Beihilfesatz:</label>
+                    <select id="beihilfeRateSelect" onchange="changeBeihilfeRate(this.value)" class="bg-white border border-gray-200 text-xs font-bold rounded-lg p-1.5 outline-none text-blue-700 cursor-pointer shadow-sm">
+                        <option value="70">70% Beihilfe (30% PKV)</option>
+                        <option value="80">80% Beihilfe (20% PKV)</option>
+                        <option value="50">50% Beihilfe (50% PKV)</option>
+                        <option value="30">30% Beihilfe (70% PKV)</option>
+                        <option value="20">20% Beihilfe (80% PKV)</option>
+                    </select>
+                </div>
+
                 <button onclick="openModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition shadow-sm flex items-center gap-2">
-                    <i class="fa-solid fa-plus"></i> Neue Rechnung
+                    <i class="fa-solid fa-plus"></i> Neu
                 </button>
                 <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition shadow-sm flex items-center gap-2">
-                    <i class="fa-solid fa-file-excel"></i> Excel-Export
+                    <i class="fa-solid fa-file-excel"></i> Excel
                 </button>
                 <button onclick="handleLogout()" class="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2 border border-red-100">
-                    <i class="fa-solid fa-right-from-bracket"></i> Abmelden
+                    <i class="fa-solid fa-right-from-bracket"></i>
                 </button>
             </div>
         </header>
@@ -90,12 +102,12 @@
                 <p id="totalSumPaid" class="text-xs text-gray-400 mt-1">Bereits erstattet: 0,00 €</p>
             </div>
             <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-                <p class="text-sm font-medium text-gray-500">Erwartet LBV (70%)</p>
+                <p id="cardLbvTitle" class="text-sm font-medium text-gray-500">Erwartet LBV (70%)</p>
                 <p id="totalLbv" class="text-2xl font-bold text-blue-600 mt-1">0,00 €</p>
                 <p id="totalLbvPaid" class="text-xs text-gray-400 mt-1">Bereits erhalten: 0,00 €</p>
             </div>
             <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-                <p class="text-sm font-medium text-gray-500">Erwartet PKV (30%)</p>
+                <p id="cardPkvTitle" class="text-sm font-medium text-gray-500">Erwartet PKV (30%)</p>
                 <p id="totalPkv" class="text-2xl font-bold text-indigo-600 mt-1">0,00 €</p>
                 <p id="totalPkvPaid" class="text-xs text-gray-400 mt-1">Bereits erhalten: 0,00 €</p>
             </div>
@@ -113,8 +125,8 @@
                             <th class="p-4 font-semibold text-right">Betrag</th>
                             <th class="p-4 font-semibold">Zahlungsziel</th>
                             <th class="p-4 font-semibold">Bezahlt am</th>
-                            <th class="p-4 font-semibold text-right">LBV (70%) <span class="block text-[10px] text-gray-400 font-normal">Klick auf Betrag</span></th>
-                            <th class="p-4 font-semibold text-right">PKV (30%) <span class="block text-[10px] text-gray-400 font-normal">Klick auf Betrag</span></th>
+                            <th id="thLbv" class="p-4 font-semibold text-right">LBV (70%) <span class="block text-[10px] text-gray-400 font-normal">Klick auf Betrag</span></th>
+                            <th id="thPkv" class="p-4 font-semibold text-right">PKV (30%) <span class="block text-[10px] text-gray-400 font-normal">Klick auf Betrag</span></th>
                             <th class="p-4 font-semibold text-center">Aktion</th>
                         </tr>
                     </thead>
@@ -214,6 +226,7 @@
         let currentUser = null;
         let invoices = [];
         let isRegistering = false;
+        let userBeihilfeRate = 70; // Standardwert 70%
 
         // AUTH-LOGIK
         function toggleAuthMode() {
@@ -239,6 +252,10 @@
                     if (name) {
                         await cred.user.updateProfile({ displayName: name });
                     }
+                    // Profil-Dokument mit Standard-Beihilfesatz anlegen
+                    await db.collection('users').doc(cred.user.uid).set({
+                        beihilfeRate: 70
+                    }, { merge: true });
                 } else {
                     await auth.signInWithEmailAndPassword(email, password);
                 }
@@ -257,12 +274,26 @@
         }
 
         // Benutzer-Status überwachen
-        auth.onAuthStateChanged(user => {
+        auth.onAuthStateChanged(async user => {
             currentUser = user;
             if (user) {
                 document.getElementById('authSection').classList.add('hidden');
                 document.getElementById('appSection').classList.remove('hidden');
                 document.getElementById('userDisplay').innerText = user.displayName ? `${user.displayName} (${user.email})` : user.email;
+                
+                // Benutzerprofil abrufen (Beihilfesatz)
+                try {
+                    const doc = await db.collection('users').doc(user.uid).get();
+                    if (doc.exists && doc.data().beihilfeRate) {
+                        userBeihilfeRate = Number(doc.data().beihilfeRate);
+                    } else {
+                        userBeihilfeRate = 70;
+                    }
+                } catch(e) {
+                    userBeihilfeRate = 70;
+                }
+                document.getElementById('beihilfeRateSelect').value = userBeihilfeRate.toString();
+                updateLabels();
                 listenToInvoices();
             } else {
                 document.getElementById('authSection').classList.remove('hidden');
@@ -270,6 +301,29 @@
                 invoices = [];
             }
         });
+
+        // Beihilfesatz ändern & speichern
+        async function changeBeihilfeRate(rate) {
+            userBeihilfeRate = Number(rate);
+            updateLabels();
+            renderTable();
+            if (currentUser) {
+                await db.collection('users').doc(currentUser.uid).set({
+                    beihilfeRate: userBeihilfeRate
+                }, { merge: true });
+            }
+        }
+
+        function updateLabels() {
+            const lbvPct = userBeihilfeRate;
+            const pkvPct = 100 - userBeihilfeRate;
+
+            document.getElementById('cardLbvTitle').innerText = `Erwartet LBV (${lbvPct}%)`;
+            document.getElementById('cardPkvTitle').innerText = `Erwartet PKV (${pkvPct}%)`;
+
+            document.getElementById('thLbv').innerHTML = `LBV (${lbvPct}%) <span class="block text-[10px] text-gray-400 font-normal">Klick auf Betrag</span>`;
+            document.getElementById('thPkv').innerHTML = `PKV (${pkvPct}%) <span class="block text-[10px] text-gray-400 font-normal">Klick auf Betrag</span>`;
+        }
 
         // ECHTZEIT-DATENBANK
         let unsubscribe = null;
@@ -289,7 +343,6 @@
                 });
         }
 
-        // Datum im Format dd.mm.yyyy formatieren
         function formatDateDE(dateStr) {
             if (!dateStr) return '';
             const parts = dateStr.split('-');
@@ -309,14 +362,17 @@
             let totalLbvPaid = 0;
             let totalPkvPaid = 0;
 
+            const lbvFactor = userBeihilfeRate / 100;
+            const pkvFactor = (100 - userBeihilfeRate) / 100;
+
             if (invoices.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">Keine Rechnungen vorhanden. Klicken Sie auf „Neue Rechnung“.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">Keine Rechnungen vorhanden. Klicken Sie auf „Neu“.</td></tr>`;
             }
 
             invoices.forEach(inv => {
                 const betrag = parseFloat(inv.betrag) || 0;
-                const lbvBetrag = betrag * 0.70;
-                const pkvBetrag = betrag * 0.30;
+                const lbvBetrag = betrag * lbvFactor;
+                const pkvBetrag = betrag * pkvFactor;
 
                 totalSum += betrag;
                 totalLbv += lbvBetrag;
@@ -410,9 +466,12 @@
             const inv = invoices.find(i => i.id === docId);
             if (!inv) return;
 
+            const lbvPct = userBeihilfeRate;
+            const pkvPct = 100 - userBeihilfeRate;
+
             document.getElementById('payoutDocId').value = docId;
             document.getElementById('payoutType').value = type;
-            document.getElementById('payoutModalTitle').innerText = (type === 'lbv' ? 'LBV (70%) Geldeingang' : 'PKV (30%) Geldeingang') + ` - ${inv.aussteller}`;
+            document.getElementById('payoutModalTitle').innerText = (type === 'lbv' ? `LBV (${lbvPct}%) Geldeingang` : `PKV (${pkvPct}%) Geldeingang`) + ` - ${inv.aussteller}`;
             document.getElementById('payoutDateInput').value = type === 'lbv' ? (inv.lbvDate || '') : (inv.pkvDate || '');
             
             document.getElementById('payoutModal').classList.remove('hidden');
@@ -461,7 +520,11 @@
                 return;
             }
 
-            // Tabellendaten für Excel strukturieren
+            const lbvPct = userBeihilfeRate;
+            const pkvPct = 100 - userBeihilfeRate;
+            const lbvFactor = lbvPct / 100;
+            const pkvFactor = pkvPct / 100;
+
             const excelData = invoices.map(inv => {
                 const betrag = parseFloat(inv.betrag) || 0;
                 return {
@@ -471,34 +534,23 @@
                     "Rechnungsbetrag (€)": Number(betrag.toFixed(2)),
                     "Zahlungsziel": formatDateDE(inv.zahlungsziel),
                     "Bezahlt am (an Arzt)": formatDateDE(inv.bezahltAm),
-                    "LBV Erwartet (70% €)": Number((betrag * 0.70).toFixed(2)),
+                    [`LBV Erwartet (${lbvPct}% €)`]: Number((betrag * lbvFactor).toFixed(2)),
                     "LBV Erstattet am": formatDateDE(inv.lbvDate),
-                    "PKV Erwartet (30% €)": Number((betrag * 0.30).toFixed(2)),
+                    [`PKV Erwartet (${pkvPct}% €)`]: Number((betrag * pkvFactor).toFixed(2)),
                     "PKV Erstattet am": formatDateDE(inv.pkvDate)
                 };
             });
 
-            // Erzeuge Excel-Arbeitsmappe
             const worksheet = XLSX.utils.json_to_sheet(excelData);
 
-            // Spaltenbreiten anpassen für bessere Lesbarkeit
             worksheet['!cols'] = [
-                { wch: 12 }, // Termin
-                { wch: 12 }, // Re.-Datum
-                { wch: 28 }, // Rechnungsaussteller
-                { wch: 18 }, // Betrag
-                { wch: 14 }, // Zahlungsziel
-                { wch: 20 }, // Bezahlt am
-                { wch: 20 }, // LBV Erwartet
-                { wch: 18 }, // LBV Erstattet
-                { wch: 20 }, // PKV Erwartet
-                { wch: 18 }  // PKV Erstattet
+                { wch: 12 }, { wch: 12 }, { wch: 28 }, { wch: 18 }, { wch: 14 },
+                { wch: 20 }, { wch: 20 }, { wch: 18 }, { wch: 20 }, { wch: 18 }
             ];
 
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Beihilfe Rechnungen");
 
-            // Dateinamen mit aktuellem Tagesdatum generieren
             const today = new Date().toISOString().split('T')[0];
             XLSX.writeFile(workbook, `Beihilfetabelle_Export_${today}.xlsx`);
         }
