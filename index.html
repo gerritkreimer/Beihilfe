@@ -94,9 +94,9 @@
             </div>
         </header>
 
-        <!-- NEUER STATISTIK-BEREICH: Gesamtsumme oben, Rot & Grün gleich groß darunter -->
+        <!-- STATISTIK-BEREICH: Gesamtsumme oben, Rot & Grün gleich groß darunter -->
         <div class="space-y-4 mb-8">
-            <!-- 1. Gesamtsumme Schwarz zentriert darüber -->
+            <!-- 1. Gesamtsumme Schwarz -->
             <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col sm:flex-row justify-between items-center text-center sm:text-left">
                 <div>
                     <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Gesamtvolumen Rechnungen</span>
@@ -164,12 +164,13 @@
             </div>
         </div>
 
-        <!-- Haupttabelle -->
+        <!-- Haupttabelle mit neuer Spalte Nr. ganz links -->
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-100">
+                            <th class="p-4 font-semibold text-center w-16">Nr.</th>
                             <th class="p-4 font-semibold">Termin</th>
                             <th class="p-4 font-semibold">Re.-Datum</th>
                             <th class="p-4 font-semibold">Rechnungsaussteller</th>
@@ -198,7 +199,12 @@
             </div>
             <form id="invoiceForm" onsubmit="saveInvoice(event)" class="space-y-4">
                 <input type="hidden" id="editInvoiceId">
-                <div class="grid grid-cols-2 gap-4">
+                
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Lfd. Nr.</label>
+                        <input type="number" id="invoiceNumber" class="w-full border border-gray-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold text-blue-600" required>
+                    </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 mb-1">Termin</label>
                         <input type="date" id="termin" class="w-full border border-gray-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
@@ -208,10 +214,12 @@
                         <input type="date" id="reDatum" class="w-full border border-gray-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" required>
                     </div>
                 </div>
+
                 <div>
                     <label class="block text-xs font-medium text-gray-700 mb-1">Rechnungsaussteller</label>
                     <input type="text" id="aussteller" placeholder="z.B. Praxis Dr. Müller" class="w-full border border-gray-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" required>
                 </div>
+
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-medium text-gray-700 mb-1">Betrag (€)</label>
@@ -222,6 +230,7 @@
                         <input type="date" id="zahlungsziel" class="w-full border border-gray-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                 </div>
+
                 <div>
                     <div class="flex justify-between items-center mb-1">
                         <label class="block text-xs font-medium text-gray-700">Bezahlt am (an Arzt)</label>
@@ -232,6 +241,7 @@
                         <button type="button" onclick="document.getElementById('bezahltAm').value=''" title="Feld leeren" class="px-3 border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50"><i class="fa-solid fa-eraser"></i></button>
                     </div>
                 </div>
+
                 <div class="flex justify-end gap-3 mt-6">
                     <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-100">Abbrechen</button>
                     <button type="submit" id="saveInvoiceBtn" class="px-4 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 shadow-sm">Speichern</button>
@@ -390,11 +400,17 @@
             if (unsubscribe) unsubscribe();
             
             unsubscribe = db.collection('users').doc(currentUser.uid).collection('invoices')
-                .orderBy('reDatum', 'desc')
                 .onSnapshot(snapshot => {
                     invoices = [];
                     snapshot.forEach(doc => {
                         invoices.push({ id: doc.id, ...doc.data() });
+                    });
+                    // Nach laufender Nummer sortieren (falls vorhanden, sonst nach Erstelldatum)
+                    invoices.sort((a, b) => {
+                        const nrA = a.nr !== undefined ? Number(a.nr) : 999999;
+                        const风nrB = b.nr !== undefined ? Number(b.nr) : 999999;
+                        if (nrA !==风nrB) return nrA -风nrB;
+                        return (a.reDatum || '').localeCompare(b.reDatum || '');
                     });
                     renderTable();
                 }, error => {
@@ -407,6 +423,17 @@
             const parts = dateStr.split('-');
             if (parts.length !== 3) return dateStr;
             return `${parts[2]}.${parts[1]}.${parts[0]}`;
+        }
+
+        // Nächste verfügbare Nummer berechnen
+        function getNextInvoiceNumber() {
+            if (!invoices || invoices.length === 0) return 1;
+            let maxNr = 0;
+            invoices.forEach(inv => {
+                const n = parseInt(inv.nr);
+                if (!isNaN(n) && n > maxNr) maxNr = n;
+            });
+            return maxNr + 1;
         }
 
         // TABELLE RENDERN
@@ -425,10 +452,10 @@
             const pkvFactor = (100 - userBeihilfeRate) / 100;
 
             if (invoices.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-gray-400">Keine Rechnungen vorhanden. Klicken Sie auf „Neu“.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-gray-400">Keine Rechnungen vorhanden. Klicken Sie auf „Neu“.</td></tr>`;
             }
 
-            invoices.forEach(inv => {
+            invoices.forEach((inv, index) => {
                 const betrag = parseFloat(inv.betrag) || 0;
                 const lbvBetrag = betrag * lbvFactor;
                 const pkvBetrag = betrag * pkvFactor;
@@ -444,6 +471,9 @@
                 if (isPkvPaid) totalPkvPaid += pkvBetrag;
                 if (isLbvPaid) totalSumPaid += lbvBetrag;
                 if (isPkvPaid) totalSumPaid += pkvBetrag;
+
+                // Nummer anzeigen (falls in Altdaten noch keine Nr hinterlegt ist, nehmen wir temporär den Index)
+                const displayNr = inv.nr !== undefined ? inv.nr : (index + 1);
 
                 let lbvHtml = isLbvPaid ? `
                     <span onclick="openPayoutModal('${inv.id}', 'lbv')" class="cursor-pointer inline-flex flex-col items-end bg-green-50 text-green-700 px-2.5 py-1 rounded-lg border border-green-200 hover:bg-green-100 transition">
@@ -468,6 +498,9 @@
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-gray-50/75 transition";
                 tr.innerHTML = `
+                    <td class="p-4 text-center font-bold text-blue-600 cursor-pointer" onclick="openEditModal('${inv.id}')" title="Klicken zum Bearbeiten der Vorgangsnummer">
+                        <span class="bg-blue-50 px-2 py-1 rounded-lg border border-blue-100 hover:bg-blue-100">${displayNr}</span>
+                    </td>
                     <td class="p-4 text-gray-600">${formatDateDE(inv.termin) || '-'}</td>
                     <td class="p-4 text-gray-600">${formatDateDE(inv.reDatum) || '-'}</td>
                     <td class="p-4 font-medium text-gray-900 cursor-pointer hover:text-blue-600" onclick="openEditModal('${inv.id}')" title="Klicken zum Bearbeiten">
@@ -525,6 +558,10 @@
             document.getElementById('invoiceModalTitle').innerText = 'Neue Rechnung erfassen';
             document.getElementById('saveInvoiceBtn').innerText = 'Speichern';
             document.getElementById('invoiceForm').reset();
+            
+            // Automatisch nächste freie laufende Nummer eintragen
+            document.getElementById('invoiceNumber').value = getNextInvoiceNumber();
+
             document.getElementById('invoiceModal').classList.remove('hidden');
         }
 
@@ -537,6 +574,7 @@
             document.getElementById('invoiceModalTitle').innerText = 'Rechnung bearbeiten';
             document.getElementById('saveInvoiceBtn').innerText = 'Änderungen speichern';
 
+            document.getElementById('invoiceNumber').value = inv.nr !== undefined ? inv.nr : 1;
             document.getElementById('termin').value = inv.termin || '';
             document.getElementById('reDatum').value = inv.reDatum || '';
             document.getElementById('aussteller').value = inv.aussteller || '';
@@ -563,6 +601,7 @@
 
             const editId = document.getElementById('editInvoiceId').value;
             const invoiceData = {
+                nr: parseInt(document.getElementById('invoiceNumber').value) || 1,
                 termin: document.getElementById('termin').value,
                 reDatum: document.getElementById('reDatum').value,
                 aussteller: document.getElementById('aussteller').value,
@@ -651,9 +690,10 @@
             const lbvFactor = lbvPct / 100;
             const pkvFactor = pkvPct / 100;
 
-            const excelData = invoices.map(inv => {
+            const excelData = invoices.map((inv, idx) => {
                 const betrag = parseFloat(inv.betrag) || 0;
                 return {
+                    "Nr.": inv.nr !== undefined ? inv.nr : (idx + 1),
                     "Termin": formatDateDE(inv.termin),
                     "Re.-Datum": formatDateDE(inv.reDatum),
                     "Rechnungsaussteller": inv.aussteller,
@@ -670,8 +710,17 @@
             const worksheet = XLSX.utils.json_to_sheet(excelData);
 
             worksheet['!cols'] = [
-                { wch: 12 }, { wch: 12 }, { wch: 28 }, { wch: 18 }, { wch: 14 },
-                { wch: 20 }, { wch: 20 }, { wch: 18 }, { wch: 20 }, { wch: 18 }
+                { wch: 8 },  // Nr.
+                { wch: 12 }, // Termin
+                { wch: 12 }, // Re.-Datum
+                { wch: 28 }, // Rechnungsaussteller
+                { wch: 18 }, // Betrag
+                { wch: 14 }, // Zahlungsziel
+                { wch: 20 }, // Bezahlt am
+                { wch: 20 }, // LBV Erwartet
+                { wch: 18 }, // LBV Erstattet
+                { wch: 20 }, // PKV Erwartet
+                { wch: 18 }  // PKV Erstattet
             ];
 
             const workbook = XLSX.utils.book_new();
