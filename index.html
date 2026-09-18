@@ -9,7 +9,10 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Firebase SDKs (Compat-Version für GitHub Pages) -->
+    <!-- SheetJS für den direkten Excel-Export (.xlsx) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
@@ -58,7 +61,7 @@
         </div>
     </div>
 
-    <!-- 2. HAUPT-APP (Sichtbar nach erfolgreicher Anmeldung) -->
+    <!-- 2. HAUPT-APP -->
     <div id="appSection" class="hidden max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <!-- Header -->
         <header class="flex flex-col sm:flex-row justify-between items-center mb-8 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
@@ -70,8 +73,8 @@
                 <button onclick="openModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition shadow-sm flex items-center gap-2">
                     <i class="fa-solid fa-plus"></i> Neue Rechnung
                 </button>
-                <button onclick="exportData()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2">
-                    <i class="fa-solid fa-download"></i> Export
+                <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition shadow-sm flex items-center gap-2">
+                    <i class="fa-solid fa-file-excel"></i> Excel-Export
                 </button>
                 <button onclick="handleLogout()" class="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2 border border-red-100">
                     <i class="fa-solid fa-right-from-bracket"></i> Abmelden
@@ -79,7 +82,7 @@
             </div>
         </header>
 
-        <!-- Statistik-Karten mit Erstattungsstatus -->
+        <!-- Statistik-Karten -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
                 <p class="text-sm font-medium text-gray-500">Gesamtsumme Rechnungen</p>
@@ -116,7 +119,7 @@
                         </tr>
                     </thead>
                     <tbody id="tableBody" class="divide-y divide-gray-100 text-sm">
-                        <!-- Einträge -->
+                        <!-- Rechnungszeilen -->
                     </tbody>
                 </table>
             </div>
@@ -194,7 +197,6 @@
 
     <!-- JavaScript Logik -->
     <script>
-        // IHRE BEREITS EINGEBAUTE FIREBASE KONFIGURATION:
         const firebaseConfig = {
             apiKey: "AIzaSyDOeM9ePDWeKiHSj4Mgi6c5bgUHTxMGNQM",
             authDomain: "beihilfe-app-ce6fc.firebaseapp.com",
@@ -269,7 +271,7 @@
             }
         });
 
-        // ECHTZEIT-DATENBANK-ABRUF (Strikte Trennung je Nutzer über die eigene UID)
+        // ECHTZEIT-DATENBANK
         let unsubscribe = null;
         function listenToInvoices() {
             if (unsubscribe) unsubscribe();
@@ -452,14 +454,53 @@
             }
         }
 
-        function exportData() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(invoices, null, 2));
-            const downloadAnchor = document.createElement('a');
-            downloadAnchor.setAttribute("href", dataStr);
-            downloadAnchor.setAttribute("download", "beihilfe_export.json");
-            document.body.appendChild(downloadAnchor);
-            downloadAnchor.click();
-            downloadAnchor.remove();
+        // ECHTER EXCEL-EXPORT (.xlsx)
+        function exportToExcel() {
+            if (!invoices || invoices.length === 0) {
+                alert('Es sind keine Daten zum Exportieren vorhanden.');
+                return;
+            }
+
+            // Tabellendaten für Excel strukturieren
+            const excelData = invoices.map(inv => {
+                const betrag = parseFloat(inv.betrag) || 0;
+                return {
+                    "Termin": formatDateDE(inv.termin),
+                    "Re.-Datum": formatDateDE(inv.reDatum),
+                    "Rechnungsaussteller": inv.aussteller,
+                    "Rechnungsbetrag (€)": Number(betrag.toFixed(2)),
+                    "Zahlungsziel": formatDateDE(inv.zahlungsziel),
+                    "Bezahlt am (an Arzt)": formatDateDE(inv.bezahltAm),
+                    "LBV Erwartet (70% €)": Number((betrag * 0.70).toFixed(2)),
+                    "LBV Erstattet am": formatDateDE(inv.lbvDate),
+                    "PKV Erwartet (30% €)": Number((betrag * 0.30).toFixed(2)),
+                    "PKV Erstattet am": formatDateDE(inv.pkvDate)
+                };
+            });
+
+            // Erzeuge Excel-Arbeitsmappe
+            const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+            // Spaltenbreiten anpassen für bessere Lesbarkeit
+            worksheet['!cols'] = [
+                { wch: 12 }, // Termin
+                { wch: 12 }, // Re.-Datum
+                { wch: 28 }, // Rechnungsaussteller
+                { wch: 18 }, // Betrag
+                { wch: 14 }, // Zahlungsziel
+                { wch: 20 }, // Bezahlt am
+                { wch: 20 }, // LBV Erwartet
+                { wch: 18 }, // LBV Erstattet
+                { wch: 20 }, // PKV Erwartet
+                { wch: 18 }  // PKV Erstattet
+            ];
+
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Beihilfe Rechnungen");
+
+            // Dateinamen mit aktuellem Tagesdatum generieren
+            const today = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(workbook, `Beihilfetabelle_Export_${today}.xlsx`);
         }
     </script>
 </body>
