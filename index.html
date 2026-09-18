@@ -43,7 +43,12 @@
 
                 <div>
                     <label class="block text-xs font-medium text-gray-700 mb-1">Passwort</label>
-                    <input type="password" id="authPassword" class="w-full border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="••••••••" required>
+                    <div class="relative">
+                        <input type="password" id="authPassword" class="w-full border border-gray-200 rounded-xl p-3 pr-11 text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="••••••••" required>
+                        <button type="button" onclick="togglePasswordVisibility()" class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none" title="Passwort anzeigen / verbergen">
+                            <i id="passwordEyeIcon" class="fa-solid fa-eye text-sm"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div id="authError" class="hidden p-3 bg-red-50 text-red-600 text-xs rounded-xl border border-red-100"></div>
@@ -164,7 +169,7 @@
             </div>
         </div>
 
-        <!-- Haupttabelle mit neuer Spalte Nr. ganz links -->
+        <!-- Haupttabelle -->
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
@@ -299,6 +304,21 @@
         let isRegistering = false;
         let userBeihilfeRate = 70; // Standard 70%
 
+        // PASSWORT SICHTBARKEIT UMSCHALTEN (AUGE)
+        function togglePasswordVisibility() {
+            const pwdInput = document.getElementById('authPassword');
+            const eyeIcon = document.getElementById('passwordEyeIcon');
+            if (pwdInput.type === 'password') {
+                pwdInput.type = 'text';
+                eyeIcon.classList.remove('fa-eye');
+                eyeIcon.classList.add('fa-eye-slash');
+            } else {
+                pwdInput.type = 'password';
+                eyeIcon.classList.remove('fa-eye-slash');
+                eyeIcon.classList.add('fa-eye');
+            }
+        }
+
         // AUTH-LOGIK
         function toggleAuthMode() {
             isRegistering = !isRegistering;
@@ -307,6 +327,13 @@
             document.getElementById('toggleAuthBtn').innerText = isRegistering ? 'Bereits ein Konto? Hier anmelden' : 'Noch kein Konto? Hier registrieren';
             document.getElementById('nameField').classList.toggle('hidden', !isRegistering);
             document.getElementById('authError').classList.add('hidden');
+            
+            // Passwortfeld wieder maskieren
+            const pwdInput = document.getElementById('authPassword');
+            pwdInput.type = 'password';
+            const eyeIcon = document.getElementById('passwordEyeIcon');
+            eyeIcon.classList.remove('fa-eye-slash');
+            eyeIcon.classList.add('fa-eye');
         }
 
         async function handleAuth(e) {
@@ -405,11 +432,11 @@
                     snapshot.forEach(doc => {
                         invoices.push({ id: doc.id, ...doc.data() });
                     });
-                    // Nach laufender Nummer sortieren (falls vorhanden, sonst nach Erstelldatum)
+                    // Nach laufender Nummer sortieren
                     invoices.sort((a, b) => {
                         const nrA = a.nr !== undefined ? Number(a.nr) : 999999;
-                        const风nrB = b.nr !== undefined ? Number(b.nr) : 999999;
-                        if (nrA !==风nrB) return nrA -风nrB;
+                        const nrB = b.nr !== undefined ? Number(b.nr) : 999999;
+                        if (nrA !== nrB) return nrA - nrB;
                         return (a.reDatum || '').localeCompare(b.reDatum || '');
                     });
                     renderTable();
@@ -425,7 +452,7 @@
             return `${parts[2]}.${parts[1]}.${parts[0]}`;
         }
 
-        // Nächste verfügbare Nummer berechnen
+        // Nächste freie laufende Nummer ermitteln
         function getNextInvoiceNumber() {
             if (!invoices || invoices.length === 0) return 1;
             let maxNr = 0;
@@ -472,7 +499,6 @@
                 if (isLbvPaid) totalSumPaid += lbvBetrag;
                 if (isPkvPaid) totalSumPaid += pkvBetrag;
 
-                // Nummer anzeigen (falls in Altdaten noch keine Nr hinterlegt ist, nehmen wir temporär den Index)
                 const displayNr = inv.nr !== undefined ? inv.nr : (index + 1);
 
                 let lbvHtml = isLbvPaid ? `
@@ -527,22 +553,19 @@
                 tbody.appendChild(tr);
             });
 
-            // Statistiken berechnen
+            // Statistiken
             const totalOpen = Math.max(0, totalSum - totalSumPaid);
             const paidPct = totalSum > 0 ? Math.round((totalSumPaid / totalSum) * 100) : 0;
             const openPct = totalSum > 0 ? Math.round((totalOpen / totalSum) * 100) : 0;
 
-            // Gesamtsumme Schwarz
             document.getElementById('totalSum').innerText = totalSum.toFixed(2) + ' €';
 
-            // Rot & Grün
             document.getElementById('totalOpen').innerText = totalOpen.toFixed(2) + ' €';
             document.getElementById('openPercentBadge').innerText = openPct + '%';
 
             document.getElementById('totalPaid').innerText = totalSumPaid.toFixed(2) + ' €';
             document.getElementById('paidPercentBadge').innerText = paidPct + '%';
 
-            // Detailkarten LBV & PKV
             document.getElementById('totalLbv').innerText = totalLbv.toFixed(2) + ' €';
             const lbvPctCalculated = totalLbv > 0 ? Math.round((totalLbvPaid / totalLbv) * 100) : 0;
             document.getElementById('totalLbvPaid').innerText = `${totalLbvPaid.toFixed(2)} € (${lbvPctCalculated}%)`;
@@ -558,10 +581,7 @@
             document.getElementById('invoiceModalTitle').innerText = 'Neue Rechnung erfassen';
             document.getElementById('saveInvoiceBtn').innerText = 'Speichern';
             document.getElementById('invoiceForm').reset();
-            
-            // Automatisch nächste freie laufende Nummer eintragen
             document.getElementById('invoiceNumber').value = getNextInvoiceNumber();
-
             document.getElementById('invoiceModal').classList.remove('hidden');
         }
 
