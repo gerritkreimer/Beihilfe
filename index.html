@@ -2,10 +2,10 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <title>Beihilfe-App</title>
     
-    <!-- App-Icons & PWA-Metadaten -->
+    <!-- App-Icons & PWA-Metadaten für iPhone & iPad -->
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="manifest" href="manifest.json">
@@ -77,76 +77,79 @@
         </div>
     </div>
 
-    <!-- 2. HAUPT-APP FÜRS SMARTPHONE -->
-    <div id="appSection" class="hidden max-w-md md:max-w-3xl mx-auto p-3 sm:p-5">
+    <!-- 2. HAUPT-APP (Breitenanpassung für Smartphones, iPads & Tablets) -->
+    <div id="appSection" class="hidden max-w-5xl mx-auto p-3 sm:p-6 lg:p-8">
         
         <!-- Headerleiste -->
-        <header class="flex justify-between items-center bg-white px-4 py-2.5 rounded-2xl shadow-sm border border-gray-100 mb-3">
+        <header class="flex justify-between items-center bg-white px-4 py-3 rounded-2xl shadow-sm border border-gray-100 mb-4">
             <div class="flex items-center gap-2.5">
                 <img src="icon.png" alt="Icon" onerror="this.classList.add('hidden'); document.getElementById('headerFallbackIcon').classList.remove('hidden');" class="w-8 h-8 rounded-xl object-cover shadow-xs">
                 <div id="headerFallbackIcon" class="hidden w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-sm font-bold">
                     <i class="fa-solid fa-file-medical"></i>
                 </div>
-                <h1 class="text-base font-bold text-gray-900 leading-none">Beihilfe-App</h1>
+                <div>
+                    <h1 class="text-base font-bold text-gray-900 leading-none">Beihilfe-App</h1>
+                    <p class="hidden sm:block text-[11px] text-gray-400 mt-0.5">Übersicht & Erstattungsverwaltung</p>
+                </div>
             </div>
             
             <div class="flex items-center gap-2">
-                <button onclick="openModal()" class="bg-blue-600 active:scale-95 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-sm flex items-center gap-1.5 transition">
+                <button onclick="openModal()" class="bg-blue-600 active:scale-95 hover:bg-blue-700 text-white px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-sm flex items-center gap-1.5 transition">
                     <i class="fa-solid fa-plus"></i> Neu
                 </button>
-                <button onclick="openSettingsModal()" class="w-8 h-8 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition active:scale-95" title="Einstellungen">
-                    <i class="fa-solid fa-gear text-sm"></i>
+                <button onclick="openSettingsModal()" class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition active:scale-95" title="Einstellungen">
+                    <i class="fa-solid fa-gear text-sm sm:text-base"></i>
                 </button>
             </div>
         </header>
 
-        <!-- Kompakte Finanz-Leiste in einer Zeile -->
-        <div class="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 mb-3">
+        <!-- Finanz-Leiste in einer Zeile (Gesamt | Offen | Erstattet) -->
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-4">
             <div class="grid grid-cols-3 divide-x divide-gray-100 text-center">
                 <!-- Gesamt -->
-                <div class="px-1">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Gesamt</p>
-                    <p id="totalSum" class="text-sm sm:text-base font-black text-gray-900 mt-0.5 truncate">0,00 €</p>
+                <div class="px-2">
+                    <p class="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-400">Gesamt</p>
+                    <p id="totalSum" class="text-sm sm:text-xl md:text-2xl font-black text-gray-900 mt-0.5 truncate">0,00 €</p>
                 </div>
                 <!-- Offen (Rot) -->
-                <div class="px-1">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-red-500">Offen</p>
-                    <p id="totalOpen" class="text-sm sm:text-base font-black text-red-600 mt-0.5 truncate">0,00 €</p>
+                <div class="px-2">
+                    <p class="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-red-500">Offen</p>
+                    <p id="totalOpen" class="text-sm sm:text-xl md:text-2xl font-black text-red-600 mt-0.5 truncate">0,00 €</p>
                 </div>
                 <!-- Erstattet (Grün) -->
-                <div class="px-1">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Erstattet</p>
-                    <p id="totalPaid" class="text-sm sm:text-base font-black text-emerald-600 mt-0.5 truncate">0,00 €</p>
+                <div class="px-2">
+                    <p class="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-emerald-600">Erstattet</p>
+                    <p id="totalPaid" class="text-sm sm:text-xl md:text-2xl font-black text-emerald-600 mt-0.5 truncate">0,00 €</p>
                 </div>
             </div>
 
             <!-- Ausklappbare LBV & PKV Details -->
-            <div class="mt-2 pt-2 border-t border-gray-100 text-center">
-                <button onclick="toggleDetails()" class="text-[11px] text-gray-400 hover:text-gray-600 inline-flex items-center gap-1">
+            <div class="mt-3 pt-3 border-t border-gray-100 text-center">
+                <button onclick="toggleDetails()" class="text-xs text-gray-400 hover:text-gray-600 inline-flex items-center gap-1.5 transition">
                     <span id="detailsToggleText">Details (LBV / PKV) anzeigen</span>
-                    <i id="detailsToggleIcon" class="fa-solid fa-chevron-down text-[9px] transition-transform"></i>
+                    <i id="detailsToggleIcon" class="fa-solid fa-chevron-down text-[10px] transition-transform"></i>
                 </button>
 
-                <div id="detailsDrawer" class="hidden grid grid-cols-2 gap-2 mt-2 pt-2 text-left">
-                    <div class="bg-blue-50/70 p-2.5 rounded-xl border border-blue-100/60">
-                        <p id="cardLbvTitle" class="text-[10px] font-bold text-blue-800 uppercase">LBV (70%)</p>
-                        <p id="totalLbv" class="text-xs font-black text-blue-900">0,00 €</p>
-                        <p class="text-[10px] text-blue-700 mt-0.5">Erhalten: <span id="totalLbvPaid" class="font-semibold">0,00 €</span></p>
+                <div id="detailsDrawer" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 pt-2 text-left">
+                    <div class="bg-blue-50/70 p-3 rounded-xl border border-blue-100/60">
+                        <p id="cardLbvTitle" class="text-xs font-bold text-blue-800 uppercase">LBV (70%)</p>
+                        <p id="totalLbv" class="text-sm sm:text-base font-black text-blue-900 mt-0.5">0,00 €</p>
+                        <p class="text-xs text-blue-700 mt-1">Erhalten: <span id="totalLbvPaid" class="font-semibold">0,00 €</span></p>
                     </div>
-                    <div class="bg-indigo-50/70 p-2.5 rounded-xl border border-indigo-100/60">
-                        <p id="cardPkvTitle" class="text-[10px] font-bold text-indigo-800 uppercase">PKV (30%)</p>
-                        <p id="totalPkv" class="text-xs font-black text-indigo-900">0,00 €</p>
-                        <p class="text-[10px] text-indigo-700 mt-0.5">Erhalten: <span id="totalPkvPaid" class="font-semibold">0,00 €</span></p>
+                    <div class="bg-indigo-50/70 p-3 rounded-xl border border-indigo-100/60">
+                        <p id="cardPkvTitle" class="text-xs font-bold text-indigo-800 uppercase">PKV (30%)</p>
+                        <p id="totalPkv" class="text-sm sm:text-base font-black text-indigo-900 mt-0.5">0,00 €</p>
+                        <p class="text-xs text-indigo-700 mt-1">Erhalten: <span id="totalPkvPaid" class="font-semibold">0,00 €</span></p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Schlanke Vorgangs-Liste für Mobilgeräte -->
+        <!-- Vorgangs-Liste -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="px-4 py-2.5 bg-gray-50/80 border-b border-gray-100 flex justify-between items-center">
+            <div class="px-4 py-3 bg-gray-50/80 border-b border-gray-100 flex justify-between items-center">
                 <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Vorgänge (<span id="invoiceCount">0</span>)</span>
-                <span class="text-[10px] text-gray-400">Tippen für Details & Geldeingang</span>
+                <span class="text-xs text-gray-400">Tippen für Details & Geldeingang</span>
             </div>
             
             <div id="invoiceList" class="divide-y divide-gray-100">
@@ -157,7 +160,7 @@
 
     <!-- MODAL: Einstellungen (Zahnrad) -->
     <div id="settingsModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl max-w-xs w-full p-5 shadow-xl">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-xl">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-sm font-bold text-gray-900"><i class="fa-solid fa-sliders text-blue-600 mr-1.5"></i> Einstellungen</h3>
                 <button onclick="closeSettingsModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
@@ -176,14 +179,14 @@
                 </div>
 
                 <div class="pt-2 border-t border-gray-100">
-                    <p class="text-[10px] text-gray-400 mb-2">Angemeldet als:</p>
+                    <p class="text-[10px] text-gray-400 mb-1">Angemeldet als:</p>
                     <p id="settingsUserDisplay" class="text-xs font-semibold text-gray-800 truncate mb-3"></p>
 
-                    <button onclick="exportToExcel(); closeSettingsModal();" class="w-full mb-2 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+                    <button onclick="exportToExcel(); closeSettingsModal();" class="w-full mb-2 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition">
                         <i class="fa-solid fa-file-excel"></i> Als Excel exportieren
                     </button>
 
-                    <button onclick="handleLogout()" class="w-full bg-red-50 hover:bg-red-100 text-red-600 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition border border-red-100">
+                    <button onclick="handleLogout()" class="w-full bg-red-50 hover:bg-red-100 text-red-600 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition border border-red-100">
                         <i class="fa-solid fa-right-from-bracket"></i> Abmelden
                     </button>
                 </div>
@@ -191,9 +194,9 @@
         </div>
     </div>
 
-    <!-- MODAL: Vorgangs-Details & Geldeingang per Fingertipp -->
+    <!-- MODAL: Vorgangs-Details -->
     <div id="detailViewModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs hidden flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
-        <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-sm w-full p-5 shadow-2xl animate-fade-in max-h-[90vh] overflow-y-auto">
+        <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-start mb-3">
                 <div>
                     <span id="detailNrBadge" class="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md">Nr. 1</span>
@@ -223,7 +226,7 @@
                 </div>
             </div>
 
-            <!-- Notizen-Anzeige in der Detailansicht -->
+            <!-- Notizen-Anzeige -->
             <div id="detailNotesContainer" class="hidden bg-amber-50/70 border border-amber-200/60 p-2.5 rounded-xl mb-3">
                 <p class="text-[10px] font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1">
                     <i class="fa-regular fa-note-sticky text-amber-600"></i> Notizen
@@ -250,86 +253,85 @@
             </div>
 
             <div class="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
-                <button id="detailEditBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+                <button id="detailEditBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition">
                     <i class="fa-solid fa-pen-to-square"></i> Bearbeiten
                 </button>
-                <button id="detailDeleteBtn" class="bg-red-50 hover:bg-red-100 text-red-600 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition border border-red-100">
+                <button id="detailDeleteBtn" class="bg-red-50 hover:bg-red-100 text-red-600 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition border border-red-100">
                     <i class="fa-solid fa-trash-can"></i> Löschen
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL: Rechnung anlegen / bearbeiten (inkl. Notizen) -->
+    <!-- MODAL: Rechnung anlegen / bearbeiten -->
     <div id="invoiceModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs hidden flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
-        <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 shadow-xl max-h-[90vh] overflow-y-auto">
+        <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-3">
-                <h3 id="invoiceModalTitle" class="text-base font-bold text-gray-900">Rechnung erfassen</h3>
+                <h3 id="invoiceModalTitle" class="text-base sm:text-lg font-bold text-gray-900">Rechnung erfassen</h3>
                 <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <form id="invoiceForm" onsubmit="saveInvoice(event)" class="space-y-3">
+            <form id="invoiceForm" onsubmit="saveInvoice(event)" class="space-y-3 sm:space-y-4">
                 <input type="hidden" id="editInvoiceId">
                 <input type="hidden" id="oldInvoiceNumber">
                 
-                <div class="grid grid-cols-3 gap-2">
+                <div class="grid grid-cols-3 gap-2 sm:gap-3">
                     <div>
-                        <label class="block text-[11px] font-medium text-gray-600 mb-1">Nr.</label>
-                        <input type="number" id="invoiceNumber" class="w-full border border-gray-200 rounded-xl p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold text-blue-600" required>
+                        <label class="block text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Nr.</label>
+                        <input type="number" id="invoiceNumber" class="w-full border border-gray-200 rounded-xl p-2 sm:p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold text-blue-600" required>
                     </div>
                     <div>
-                        <label class="block text-[11px] font-medium text-gray-600 mb-1">Termin</label>
-                        <input type="date" id="termin" class="w-full border border-gray-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                        <label class="block text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Termin</label>
+                        <input type="date" id="termin" class="w-full border border-gray-200 rounded-xl p-2 sm:p-2.5 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                     <div>
-                        <label class="block text-[11px] font-medium text-gray-600 mb-1">Re.-Datum</label>
-                        <input type="date" id="reDatum" class="w-full border border-gray-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none" required>
+                        <label class="block text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Re.-Datum</label>
+                        <input type="date" id="reDatum" class="w-full border border-gray-200 rounded-xl p-2 sm:p-2.5 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none" required>
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-[11px] font-medium text-gray-600 mb-1">Rechnungsaussteller</label>
-                    <input type="text" id="aussteller" placeholder="z. B. Dr. Müller" class="w-full border border-gray-200 rounded-xl p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" required>
+                    <label class="block text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Rechnungsaussteller</label>
+                    <input type="text" id="aussteller" placeholder="z. B. Dr. Müller" class="w-full border border-gray-200 rounded-xl p-2 sm:p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" required>
                 </div>
 
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-2 gap-2 sm:gap-3">
                     <div>
-                        <label class="block text-[11px] font-medium text-gray-600 mb-1">Betrag (€)</label>
-                        <input type="number" step="0.01" id="betrag" placeholder="0.00" class="w-full border border-gray-200 rounded-xl p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-semibold" required>
+                        <label class="block text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Betrag (€)</label>
+                        <input type="number" step="0.01" id="betrag" placeholder="0.00" class="w-full border border-gray-200 rounded-xl p-2 sm:p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-semibold" required>
                     </div>
                     <div>
-                        <label class="block text-[11px] font-medium text-gray-600 mb-1">Zahlungsziel</label>
-                        <input type="date" id="zahlungsziel" class="w-full border border-gray-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                        <label class="block text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Zahlungsziel</label>
+                        <input type="date" id="zahlungsziel" class="w-full border border-gray-200 rounded-xl p-2 sm:p-2.5 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                 </div>
 
                 <div>
                     <div class="flex justify-between items-center mb-1">
-                        <label class="block text-[11px] font-medium text-gray-600">Bezahlt an Arzt</label>
-                        <button type="button" onclick="setTodayPaid()" class="text-[10px] text-blue-600 font-semibold hover:underline">Heute</button>
+                        <label class="block text-[11px] sm:text-xs font-medium text-gray-600">Bezahlt an Arzt</label>
+                        <button type="button" onclick="setTodayPaid()" class="text-[10px] sm:text-xs text-blue-600 font-semibold hover:underline">Heute</button>
                     </div>
                     <div class="flex gap-2">
-                        <input type="date" id="bezahltAm" class="w-full border border-gray-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
-                        <button type="button" onclick="document.getElementById('bezahltAm').value=''" title="Feld leeren" class="px-2.5 border border-gray-200 rounded-xl text-gray-400 hover:bg-gray-50"><i class="fa-solid fa-eraser text-xs"></i></button>
+                        <input type="date" id="bezahltAm" class="w-full border border-gray-200 rounded-xl p-2 sm:p-2.5 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        <button type="button" onclick="document.getElementById('bezahltAm').value=''" title="Feld leeren" class="px-2.5 sm:px-3 border border-gray-200 rounded-xl text-gray-400 hover:bg-gray-50"><i class="fa-solid fa-eraser text-xs"></i></button>
                     </div>
                 </div>
 
-                <!-- NEU: Freitextfeld Notizen -->
                 <div>
-                    <label class="block text-[11px] font-medium text-gray-600 mb-1">Notizen (optional)</label>
-                    <textarea id="notes" rows="2" placeholder="z. B. Diagnose, Rezept, Beihilfebescheid-Nr. etc." class="w-full border border-gray-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                    <label class="block text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Notizen (optional)</label>
+                    <textarea id="notes" rows="2" placeholder="z. B. Diagnose, Rezept, Beihilfebescheid-Nr. etc." class="w-full border border-gray-200 rounded-xl p-2 sm:p-2.5 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
                 </div>
 
                 <p class="text-[10px] text-gray-400 italic">Tipp: Wenn Sie eine bereits vergebene Nummer eintragen, rücken alle nachfolgenden Rechnungen automatisch um 1 auf.</p>
 
                 <div class="flex justify-end gap-2 pt-2">
-                    <button type="button" onclick="closeModal()" class="px-3.5 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-100">Abbrechen</button>
-                    <button type="submit" id="saveInvoiceBtn" class="px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm">Speichern</button>
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-gray-600 hover:bg-gray-100">Abbrechen</button>
+                    <button type="submit" id="saveInvoiceBtn" class="px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm">Speichern</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- MODAL: Geldeingangs-Datum (LBV / PKV) -->
+    <!-- MODAL: Geldeingangs-Datum -->
     <div id="payoutModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs hidden flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl max-w-xs w-full p-4 shadow-xl">
             <div class="flex justify-between items-center mb-3">
@@ -554,7 +556,7 @@
             document.getElementById('invoiceCount').innerText = invoices.length;
 
             if (invoices.length === 0) {
-                list.innerHTML = `<div class="p-6 text-center text-xs text-gray-400">Keine Rechnungen eingetragen.<br>Klicken Sie oben auf „+ Neu“.</div>`;
+                list.innerHTML = `<div class="p-8 text-center text-xs sm:text-sm text-gray-400">Keine Rechnungen eingetragen.<br>Klicken Sie oben auf „+ Neu“.</div>`;
             }
 
             invoices.forEach((inv, index) => {
@@ -578,36 +580,35 @@
 
                 let statusBadge = '';
                 if (isLbvPaid && isPkvPaid) {
-                    statusBadge = `<span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200"><i class="fa-solid fa-check text-[9px]"></i> Erstattet</span>`;
+                    statusBadge = `<span class="inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200"><i class="fa-solid fa-check text-[9px]"></i> Erstattet</span>`;
                 } else if (isLbvPaid || isPkvPaid) {
-                    statusBadge = `<span class="inline-flex items-center text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">Teilweise</span>`;
+                    statusBadge = `<span class="inline-flex items-center text-[10px] sm:text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Teilweise</span>`;
                 } else {
-                    statusBadge = `<span class="inline-flex items-center text-[10px] font-medium text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">Offen</span>`;
+                    statusBadge = `<span class="inline-flex items-center text-[10px] sm:text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-200">Offen</span>`;
                 }
 
-                // Kleines Notiz-Icon in der Liste anzeigen, falls Notizen vorhanden sind
                 const hasNotes = Boolean(inv.notes && inv.notes.trim() !== '');
-                const notesIcon = hasNotes ? `<i class="fa-regular fa-note-sticky text-amber-500 ml-1 text-[11px]" title="Notiz vorhanden"></i>` : '';
+                const notesIcon = hasNotes ? `<i class="fa-regular fa-note-sticky text-amber-500 ml-1.5 text-xs" title="Notiz vorhanden"></i>` : '';
 
                 const item = document.createElement('div');
-                item.className = "p-3 hover:bg-blue-50/40 active:bg-blue-50/70 transition flex items-center justify-between cursor-pointer";
+                item.className = "p-3.5 sm:p-4 hover:bg-blue-50/40 active:bg-blue-50/70 transition flex items-center justify-between cursor-pointer";
                 item.onclick = () => openDetailModal(inv.id);
                 item.innerHTML = `
-                    <div class="flex items-center gap-3 min-w-0">
-                        <span class="w-7 h-7 shrink-0 rounded-lg bg-gray-100 text-gray-700 font-bold text-xs flex items-center justify-center border border-gray-200">
+                    <div class="flex items-center gap-3 sm:gap-4 min-w-0">
+                        <span class="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-xl bg-gray-100 text-gray-700 font-bold text-xs sm:text-sm flex items-center justify-center border border-gray-200">
                             ${displayNr}
                         </span>
                         <div class="min-w-0">
-                            <p class="text-sm font-semibold text-gray-900 truncate leading-tight flex items-center">
+                            <p class="text-sm sm:text-base font-semibold text-gray-900 truncate leading-tight flex items-center">
                                 <span class="truncate">${inv.aussteller}</span>
                                 ${notesIcon}
                             </p>
-                            <p class="text-[11px] text-gray-400 mt-0.5">Re.-Dat: <span class="text-gray-600">${formatDateDE(inv.reDatum) || '-'}</span></p>
+                            <p class="text-xs text-gray-400 mt-0.5">Re.-Dat: <span class="text-gray-600 font-medium">${formatDateDE(inv.reDatum) || '-'}</span></p>
                         </div>
                     </div>
 
-                    <div class="text-right shrink-0 ml-2">
-                        <p class="text-sm font-black text-gray-900 leading-tight">${betrag.toFixed(2)} €</p>
+                    <div class="text-right shrink-0 ml-3">
+                        <p class="text-sm sm:text-base font-black text-gray-900 leading-tight">${betrag.toFixed(2)} €</p>
                         <div class="mt-1 flex justify-end">${statusBadge}</div>
                     </div>
                 `;
@@ -645,7 +646,6 @@
             document.getElementById('detailZahlungsziel').innerText = formatDateDE(inv.zahlungsziel) || '-';
             document.getElementById('detailBezahltAm').innerText = formatDateDE(inv.bezahltAm) || 'Noch nicht bezahlt';
 
-            // Notizen in der Detailansicht
             const notesContainer = document.getElementById('detailNotesContainer');
             if (inv.notes && inv.notes.trim() !== '') {
                 document.getElementById('detailNotesText').innerText = inv.notes;
@@ -902,7 +902,7 @@
             worksheet['!cols'] = [
                 { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 28 }, { wch: 18 },
                 { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: 18 }, { wch: 20 }, { wch: 18 },
-                { wch: 35 } // Notizen
+                { wch: 35 }
             ];
 
             const workbook = XLSX.utils.book_new();
