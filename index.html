@@ -120,7 +120,7 @@
                 </div>
             </div>
 
-            <!-- Optional: Ausklappbare LBV & PKV Details -->
+            <!-- Ausklappbare LBV & PKV Details -->
             <div class="mt-2 pt-2 border-t border-gray-100 text-center">
                 <button onclick="toggleDetails()" class="text-[11px] text-gray-400 hover:text-gray-600 inline-flex items-center gap-1">
                     <span id="detailsToggleText">Details (LBV / PKV) anzeigen</span>
@@ -193,7 +193,7 @@
 
     <!-- MODAL: Vorgangs-Details & Geldeingang per Fingertipp -->
     <div id="detailViewModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs hidden flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
-        <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-sm w-full p-5 shadow-2xl animate-fade-in">
+        <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-sm w-full p-5 shadow-2xl animate-fade-in max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-start mb-3">
                 <div>
                     <span id="detailNrBadge" class="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md">Nr. 1</span>
@@ -208,7 +208,7 @@
                 <span id="detailBetrag" class="text-lg font-black text-gray-900">0,00 €</span>
             </div>
 
-            <div class="space-y-1.5 text-xs text-gray-600 mb-4 px-1">
+            <div class="space-y-1.5 text-xs text-gray-600 mb-3 px-1">
                 <div class="flex justify-between">
                     <span class="text-gray-400">Termin:</span>
                     <span id="detailTermin" class="font-medium">-</span>
@@ -221,6 +221,14 @@
                     <span class="text-gray-400">Bezahlt an Arzt:</span>
                     <span id="detailBezahltAm" class="font-medium">-</span>
                 </div>
+            </div>
+
+            <!-- Notizen-Anzeige in der Detailansicht -->
+            <div id="detailNotesContainer" class="hidden bg-amber-50/70 border border-amber-200/60 p-2.5 rounded-xl mb-3">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1">
+                    <i class="fa-regular fa-note-sticky text-amber-600"></i> Notizen
+                </p>
+                <p id="detailNotesText" class="text-xs text-gray-800 whitespace-pre-line mt-1"></p>
             </div>
 
             <div class="space-y-2 mb-4">
@@ -252,7 +260,7 @@
         </div>
     </div>
 
-    <!-- MODAL: Rechnung anlegen / bearbeiten -->
+    <!-- MODAL: Rechnung anlegen / bearbeiten (inkl. Notizen) -->
     <div id="invoiceModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs hidden flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
         <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 shadow-xl max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-3">
@@ -303,6 +311,12 @@
                         <input type="date" id="bezahltAm" class="w-full border border-gray-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
                         <button type="button" onclick="document.getElementById('bezahltAm').value=''" title="Feld leeren" class="px-2.5 border border-gray-200 rounded-xl text-gray-400 hover:bg-gray-50"><i class="fa-solid fa-eraser text-xs"></i></button>
                     </div>
+                </div>
+
+                <!-- NEU: Freitextfeld Notizen -->
+                <div>
+                    <label class="block text-[11px] font-medium text-gray-600 mb-1">Notizen (optional)</label>
+                    <textarea id="notes" rows="2" placeholder="z. B. Diagnose, Rezept, Beihilfebescheid-Nr. etc." class="w-full border border-gray-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
                 </div>
 
                 <p class="text-[10px] text-gray-400 italic">Tipp: Wenn Sie eine bereits vergebene Nummer eintragen, rücken alle nachfolgenden Rechnungen automatisch um 1 auf.</p>
@@ -571,6 +585,10 @@
                     statusBadge = `<span class="inline-flex items-center text-[10px] font-medium text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">Offen</span>`;
                 }
 
+                // Kleines Notiz-Icon in der Liste anzeigen, falls Notizen vorhanden sind
+                const hasNotes = Boolean(inv.notes && inv.notes.trim() !== '');
+                const notesIcon = hasNotes ? `<i class="fa-regular fa-note-sticky text-amber-500 ml-1 text-[11px]" title="Notiz vorhanden"></i>` : '';
+
                 const item = document.createElement('div');
                 item.className = "p-3 hover:bg-blue-50/40 active:bg-blue-50/70 transition flex items-center justify-between cursor-pointer";
                 item.onclick = () => openDetailModal(inv.id);
@@ -580,7 +598,10 @@
                             ${displayNr}
                         </span>
                         <div class="min-w-0">
-                            <p class="text-sm font-semibold text-gray-900 truncate leading-tight">${inv.aussteller}</p>
+                            <p class="text-sm font-semibold text-gray-900 truncate leading-tight flex items-center">
+                                <span class="truncate">${inv.aussteller}</span>
+                                ${notesIcon}
+                            </p>
                             <p class="text-[11px] text-gray-400 mt-0.5">Re.-Dat: <span class="text-gray-600">${formatDateDE(inv.reDatum) || '-'}</span></p>
                         </div>
                     </div>
@@ -623,6 +644,15 @@
             document.getElementById('detailTermin').innerText = formatDateDE(inv.termin) || '-';
             document.getElementById('detailZahlungsziel').innerText = formatDateDE(inv.zahlungsziel) || '-';
             document.getElementById('detailBezahltAm').innerText = formatDateDE(inv.bezahltAm) || 'Noch nicht bezahlt';
+
+            // Notizen in der Detailansicht
+            const notesContainer = document.getElementById('detailNotesContainer');
+            if (inv.notes && inv.notes.trim() !== '') {
+                document.getElementById('detailNotesText').innerText = inv.notes;
+                notesContainer.classList.remove('hidden');
+            } else {
+                notesContainer.classList.add('hidden');
+            }
 
             document.getElementById('detailLbvTitle').innerText = `LBV (${lbvPct}%)`;
             document.getElementById('detailLbvAmount').innerText = `${lbvBetrag.toFixed(2)} €`;
@@ -674,6 +704,7 @@
             document.getElementById('invoiceModalTitle').innerText = 'Neue Rechnung erfassen';
             document.getElementById('saveInvoiceBtn').innerText = 'Speichern';
             document.getElementById('invoiceForm').reset();
+            document.getElementById('notes').value = '';
             document.getElementById('invoiceNumber').value = getNextInvoiceNumber();
             document.getElementById('invoiceModal').classList.remove('hidden');
         }
@@ -694,6 +725,7 @@
             document.getElementById('betrag').value = inv.betrag || '';
             document.getElementById('zahlungsziel').value = inv.zahlungsziel || '';
             document.getElementById('bezahltAm').value = inv.bezahltAm || '';
+            document.getElementById('notes').value = inv.notes || '';
 
             document.getElementById('invoiceModal').classList.remove('hidden');
         }
@@ -708,9 +740,6 @@
             document.getElementById('bezahltAm').value = today;
         }
 
-        // =========================================================================
-        // AUTOMATISCHE NUMMERIERUNG BEIM EINFÜGEN & BEARBEITEN
-        // =========================================================================
         async function saveInvoice(e) {
             e.preventDefault();
             if (!currentUser) return;
@@ -726,24 +755,22 @@
                 aussteller: document.getElementById('aussteller').value,
                 betrag: parseFloat(document.getElementById('betrag').value),
                 zahlungsziel: document.getElementById('zahlungsziel').value,
-                bezahltAm: document.getElementById('bezahltAm').value || null
+                bezahltAm: document.getElementById('bezahltAm').value || null,
+                notes: document.getElementById('notes').value.trim() || null
             };
 
             const userInvoicesRef = db.collection('users').doc(currentUser.uid).collection('invoices');
             const batch = db.batch();
 
             if (editId) {
-                // FALL: BESTEHENDE RECHNUNG WIRD BEARBEITET
                 if (oldNr !== null && oldNr !== targetNr) {
                     if (targetNr < oldNr) {
-                        // Nach vorne verschoben (z.B. von 8 auf 3) -> 3 bis 7 um +1 nach oben
                         invoices.forEach(inv => {
                             if (inv.id !== editId && inv.nr >= targetNr && inv.nr < oldNr) {
                                 batch.update(userInvoicesRef.doc(inv.id), { nr: inv.nr + 1 });
                             }
                         });
                     } else {
-                        // Nach hinten verschoben (z.B. von 3 auf 8) -> 4 bis 8 um -1 nach unten
                         invoices.forEach(inv => {
                             if (inv.id !== editId && inv.nr > oldNr && inv.nr <= targetNr) {
                                 batch.update(userInvoicesRef.doc(inv.id), { nr: inv.nr - 1 });
@@ -753,8 +780,6 @@
                 }
                 batch.update(userInvoicesRef.doc(editId), invoiceData);
             } else {
-                // FALL: NEUE RECHNUNG WIRD DAZWISCHENGEFÜGT
-                // Alle Vorgänge mit gleicher oder höherer Nummer um +1 nach oben verschieben
                 invoices.forEach(inv => {
                     if (inv.nr >= targetNr) {
                         batch.update(userInvoicesRef.doc(inv.id), { nr: inv.nr + 1 });
@@ -773,9 +798,6 @@
             closeModal();
         }
 
-        // =========================================================================
-        // AUTOMATISCHE NUMMERIERUNG BEIM LÖSCHEN (Lücke schließen)
-        // =========================================================================
         async function deleteInvoice(docId) {
             const invToDelete = invoices.find(i => i.id === docId);
             if (!invToDelete) return;
@@ -785,10 +807,8 @@
                 const userInvoicesRef = db.collection('users').doc(currentUser.uid).collection('invoices');
                 const batch = db.batch();
 
-                // Gelöschtes Dokument entfernen
                 batch.delete(userInvoicesRef.doc(docId));
 
-                // Alle nachfolgenden Nummern um 1 verringern (-1)
                 invoices.forEach(inv => {
                     if (inv.id !== docId && inv.nr > deletedNr) {
                         batch.update(userInvoicesRef.doc(inv.id), { nr: inv.nr - 1 });
@@ -873,14 +893,16 @@
                     [`LBV Erwartet (${lbvPct}% €)`]: Number((betrag * lbvFactor).toFixed(2)),
                     "LBV Erstattet am": formatDateDE(inv.lbvDate),
                     [`PKV Erwartet (${pkvPct}% €)`]: Number((betrag * pkvFactor).toFixed(2)),
-                    "PKV Erstattet am": formatDateDE(inv.pkvDate)
+                    "PKV Erstattet am": formatDateDE(inv.pkvDate),
+                    "Notizen": inv.notes || ''
                 };
             });
 
             const worksheet = XLSX.utils.json_to_sheet(excelData);
             worksheet['!cols'] = [
                 { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 28 }, { wch: 18 },
-                { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: 18 }, { wch: 20 }, { wch: 18 }
+                { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: 18 }, { wch: 20 }, { wch: 18 },
+                { wch: 35 } // Notizen
             ];
 
             const workbook = XLSX.utils.book_new();
