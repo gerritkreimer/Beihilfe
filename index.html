@@ -77,7 +77,7 @@
         </div>
     </div>
 
-    <!-- 2. HAUPT-APP (Breitenanpassung für Smartphones, iPads & Tablets) -->
+    <!-- 2. HAUPT-APP -->
     <div id="appSection" class="hidden max-w-5xl mx-auto p-3 sm:p-6 lg:p-8">
         
         <!-- Headerleiste -->
@@ -103,7 +103,7 @@
             </div>
         </header>
 
-        <!-- Finanz-Leiste in einer Zeile (Gesamt | Offen | Erstattet) -->
+        <!-- Finanz-Leiste in einer Zeile -->
         <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-4">
             <div class="grid grid-cols-3 divide-x divide-gray-100 text-center">
                 <!-- Gesamt -->
@@ -149,7 +149,7 @@
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div class="px-4 py-3 bg-gray-50/80 border-b border-gray-100 flex justify-between items-center">
                 <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Vorgänge (<span id="invoiceCount">0</span>)</span>
-                <span class="text-xs text-gray-400">Tippen für Details & Geldeingang</span>
+                <span class="text-xs text-gray-400">Tippen für Details & Status</span>
             </div>
             
             <div id="invoiceList" class="divide-y divide-gray-100">
@@ -199,11 +199,20 @@
         <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-start mb-3">
                 <div>
-                    <span id="detailNrBadge" class="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md">Nr. 1</span>
+                    <div class="flex items-center gap-2">
+                        <span id="detailNrBadge" class="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md">Nr. 1</span>
+                        <span id="detailSubmittedBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-md"></span>
+                    </div>
                     <h3 id="detailAussteller" class="text-base font-bold text-gray-900 mt-1">Aussteller</h3>
                     <p id="detailReDatum" class="text-xs text-gray-500">Rechnungsdatum</p>
                 </div>
                 <button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600 p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <!-- Schnellumschalter für Eingereicht -->
+            <div class="mb-3 p-2.5 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
+                <span class="text-xs font-medium text-gray-700">Status Einreichung:</span>
+                <button id="toggleSubmittedBtn" onclick="toggleSubmittedDirect()" class="text-xs font-semibold px-2.5 py-1 rounded-lg transition"></button>
             </div>
 
             <div class="bg-gray-50 p-3 rounded-xl mb-3 flex justify-between items-center">
@@ -314,6 +323,17 @@
                         <input type="date" id="bezahltAm" class="w-full border border-gray-200 rounded-xl p-2 sm:p-2.5 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                         <button type="button" onclick="document.getElementById('bezahltAm').value=''" title="Feld leeren" class="px-2.5 sm:px-3 border border-gray-200 rounded-xl text-gray-400 hover:bg-gray-50"><i class="fa-solid fa-eraser text-xs"></i></button>
                     </div>
+                </div>
+
+                <!-- NEUES PFLICHTFELD: Eingereicht Ja / Nein (Standard: Nein) -->
+                <div>
+                    <label class="block text-[11px] sm:text-xs font-bold text-gray-700 mb-1">
+                        Bereits bei Beihilfe/PKV eingereicht? <span class="text-red-500">*</span>
+                    </label>
+                    <select id="submitted" class="w-full border border-gray-200 rounded-xl p-2 sm:p-2.5 text-xs sm:text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500 bg-white" required>
+                        <option value="nein" selected>Nein (Noch offen zum Einreichen)</option>
+                        <option value="ja">Ja (Bereits eingereicht)</option>
+                    </select>
                 </div>
 
                 <div>
@@ -578,6 +598,10 @@
 
                 const displayNr = inv.nr !== undefined ? inv.nr : (index + 1);
 
+                // Prüfen ob eingereicht (Standard: false/nein für Altdaten)
+                const isSubmitted = inv.submitted === true || inv.submitted === 'ja';
+
+                // Status Badge (Erstattet / Teilweise / Offen)
                 let statusBadge = '';
                 if (isLbvPaid && isPkvPaid) {
                     statusBadge = `<span class="inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200"><i class="fa-solid fa-check text-[9px]"></i> Erstattet</span>`;
@@ -587,15 +611,23 @@
                     statusBadge = `<span class="inline-flex items-center text-[10px] sm:text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-200">Offen</span>`;
                 }
 
+                // Gelbe Einfärbung und Hinweis-Badge, falls noch NICHT eingereicht
+                let rowBgClass = "bg-white hover:bg-blue-50/40";
+                let submittedWarningBadge = "";
+                if (!isSubmitted) {
+                    rowBgClass = "bg-amber-50/70 hover:bg-amber-100/60 border-l-4 border-amber-400";
+                    submittedWarningBadge = `<span class="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-1.5 py-0.5 rounded mt-0.5"><i class="fa-solid fa-triangle-exclamation text-[9px]"></i> Noch nicht eingereicht</span>`;
+                }
+
                 const hasNotes = Boolean(inv.notes && inv.notes.trim() !== '');
-                const notesIcon = hasNotes ? `<i class="fa-regular fa-note-sticky text-amber-500 ml-1.5 text-xs" title="Notiz vorhanden"></i>` : '';
+                const notesIcon = hasNotes ? `<i class="fa-regular fa-note-sticky text-amber-600 ml-1.5 text-xs" title="Notiz vorhanden"></i>` : '';
 
                 const item = document.createElement('div');
-                item.className = "p-3.5 sm:p-4 hover:bg-blue-50/40 active:bg-blue-50/70 transition flex items-center justify-between cursor-pointer";
+                item.className = `p-3.5 sm:p-4 ${rowBgClass} active:opacity-80 transition flex items-center justify-between cursor-pointer`;
                 item.onclick = () => openDetailModal(inv.id);
                 item.innerHTML = `
                     <div class="flex items-center gap-3 sm:gap-4 min-w-0">
-                        <span class="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-xl bg-gray-100 text-gray-700 font-bold text-xs sm:text-sm flex items-center justify-center border border-gray-200">
+                        <span class="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-xl ${isSubmitted ? 'bg-gray-100 text-gray-700 border-gray-200' : 'bg-amber-100 text-amber-900 border-amber-300 font-black'} font-bold text-xs sm:text-sm flex items-center justify-center border">
                             ${displayNr}
                         </span>
                         <div class="min-w-0">
@@ -604,6 +636,7 @@
                                 ${notesIcon}
                             </p>
                             <p class="text-xs text-gray-400 mt-0.5">Re.-Dat: <span class="text-gray-600 font-medium">${formatDateDE(inv.reDatum) || '-'}</span></p>
+                            ${submittedWarningBadge}
                         </div>
                     </div>
 
@@ -637,7 +670,25 @@
             const lbvBetrag = betrag * (lbvPct / 100);
             const pkvBetrag = betrag * (pkvPct / 100);
 
+            const isSubmitted = inv.submitted === true || inv.submitted === 'ja';
+
             document.getElementById('detailNrBadge').innerText = `Vorgang Nr. ${inv.nr || '-'}`;
+            
+            // Badge für Eingereicht
+            const subBadge = document.getElementById('detailSubmittedBadge');
+            const subBtn = document.getElementById('toggleSubmittedBtn');
+            if (isSubmitted) {
+                subBadge.className = "text-[10px] font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded-md";
+                subBadge.innerText = "Eingereicht: Ja";
+                subBtn.className = "text-xs font-semibold px-2.5 py-1 rounded-lg bg-green-100 text-green-800 hover:bg-green-200";
+                subBtn.innerHTML = `<i class="fa-solid fa-check mr-1"></i> Eingereicht (Klick zum Ändern)`;
+            } else {
+                subBadge.className = "text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md";
+                subBadge.innerText = "Eingereicht: Nein";
+                subBtn.className = "text-xs font-semibold px-2.5 py-1 rounded-lg bg-amber-200 text-amber-900 hover:bg-amber-300";
+                subBtn.innerHTML = `<i class="fa-solid fa-clock mr-1"></i> Noch offen (Klick für Ja)`;
+            }
+
             document.getElementById('detailAussteller').innerText = inv.aussteller;
             document.getElementById('detailReDatum').innerText = `Rechnungsdatum: ${formatDateDE(inv.reDatum) || '-'}`;
             document.getElementById('detailBetrag').innerText = `${betrag.toFixed(2)} €`;
@@ -693,6 +744,19 @@
             currentActiveDetailDocId = null;
         }
 
+        async function toggleSubmittedDirect() {
+            if (!currentActiveDetailDocId || !currentUser) return;
+            const inv = invoices.find(i => i.id === currentActiveDetailDocId);
+            if (!inv) return;
+            
+            const currentSub = inv.submitted === true || inv.submitted === 'ja';
+            const newSub = !currentSub;
+            
+            await db.collection('users').doc(currentUser.uid).collection('invoices').doc(currentActiveDetailDocId).update({
+                submitted: newSub
+            });
+        }
+
         function triggerPayoutFromDetail(type) {
             if (!currentActiveDetailDocId) return;
             openPayoutModal(currentActiveDetailDocId, type);
@@ -705,6 +769,7 @@
             document.getElementById('saveInvoiceBtn').innerText = 'Speichern';
             document.getElementById('invoiceForm').reset();
             document.getElementById('notes').value = '';
+            document.getElementById('submitted').value = 'nein'; // Standard: Nein
             document.getElementById('invoiceNumber').value = getNextInvoiceNumber();
             document.getElementById('invoiceModal').classList.remove('hidden');
         }
@@ -726,6 +791,9 @@
             document.getElementById('zahlungsziel').value = inv.zahlungsziel || '';
             document.getElementById('bezahltAm').value = inv.bezahltAm || '';
             document.getElementById('notes').value = inv.notes || '';
+            
+            const isSub = inv.submitted === true || inv.submitted === 'ja';
+            document.getElementById('submitted').value = isSub ? 'ja' : 'nein';
 
             document.getElementById('invoiceModal').classList.remove('hidden');
         }
@@ -747,6 +815,7 @@
             const editId = document.getElementById('editInvoiceId').value;
             const targetNr = parseInt(document.getElementById('invoiceNumber').value) || 1;
             const oldNr = document.getElementById('oldInvoiceNumber').value ? parseInt(document.getElementById('oldInvoiceNumber').value) : null;
+            const isSubmittedVal = document.getElementById('submitted').value === 'ja';
 
             const invoiceData = {
                 nr: targetNr,
@@ -756,6 +825,7 @@
                 betrag: parseFloat(document.getElementById('betrag').value),
                 zahlungsziel: document.getElementById('zahlungsziel').value,
                 bezahltAm: document.getElementById('bezahltAm').value || null,
+                submitted: isSubmittedVal,
                 notes: document.getElementById('notes').value.trim() || null
             };
 
@@ -882,8 +952,10 @@
 
             const excelData = invoices.map((inv, idx) => {
                 const betrag = parseFloat(inv.betrag) || 0;
+                const isSub = inv.submitted === true || inv.submitted === 'ja';
                 return {
                     "Nr.": inv.nr !== undefined ? inv.nr : (idx + 1),
+                    "Eingereicht?": isSub ? "Ja" : "Nein",
                     "Termin": formatDateDE(inv.termin),
                     "Re.-Datum": formatDateDE(inv.reDatum),
                     "Rechnungsaussteller": inv.aussteller,
@@ -900,9 +972,19 @@
 
             const worksheet = XLSX.utils.json_to_sheet(excelData);
             worksheet['!cols'] = [
-                { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 28 }, { wch: 18 },
-                { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: 18 }, { wch: 20 }, { wch: 18 },
-                { wch: 35 }
+                { wch: 8 },  // Nr
+                { wch: 14 }, // Eingereicht
+                { wch: 12 }, // Termin
+                { wch: 12 }, // Re-Datum
+                { wch: 28 }, // Aussteller
+                { wch: 18 }, // Betrag
+                { wch: 14 }, // Zahlungsziel
+                { wch: 20 }, // Bezahlt am
+                { wch: 20 }, // LBV Erwartet
+                { wch: 18 }, // LBV Erstattet
+                { wch: 20 }, // PKV Erwartet
+                { wch: 18 }, // PKV Erstattet
+                { wch: 35 }  // Notizen
             ];
 
             const workbook = XLSX.utils.book_new();
