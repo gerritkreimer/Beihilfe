@@ -325,7 +325,7 @@
                     </div>
                 </div>
 
-                <!-- NEUES PFLICHTFELD: Eingereicht Ja / Nein (Standard: Nein) -->
+                <!-- PFLICHTFELD: Eingereicht Ja / Nein -->
                 <div>
                     <label class="block text-[11px] sm:text-xs font-bold text-gray-700 mb-1">
                         Bereits bei Beihilfe/PKV eingereicht? <span class="text-red-500">*</span>
@@ -559,6 +559,7 @@
             return maxNr + 1;
         }
 
+        // VOLLFLÄCHIGE SIGNAL-GELBE EINFÄRBUNG FÜR NICHT EINGEREICHTE VORGÄNGE (DARK-MODE FEST)
         function renderList() {
             const list = document.getElementById('invoiceList');
             list.innerHTML = '';
@@ -604,44 +605,64 @@
                 // Status Badge (Erstattet / Teilweise / Offen)
                 let statusBadge = '';
                 if (isLbvPaid && isPkvPaid) {
-                    statusBadge = `<span class="inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200"><i class="fa-solid fa-check text-[9px]"></i> Erstattet</span>`;
+                    statusBadge = `<span class="inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300"><i class="fa-solid fa-check text-[9px]"></i> Erstattet</span>`;
                 } else if (isLbvPaid || isPkvPaid) {
-                    statusBadge = `<span class="inline-flex items-center text-[10px] sm:text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Teilweise</span>`;
+                    statusBadge = `<span class="inline-flex items-center text-[10px] sm:text-xs font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">Teilweise</span>`;
                 } else {
-                    statusBadge = `<span class="inline-flex items-center text-[10px] sm:text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-200">Offen</span>`;
+                    statusBadge = `<span class="inline-flex items-center text-[10px] sm:text-xs font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded border border-red-300">Offen</span>`;
                 }
 
-                // Gelbe Einfärbung und Hinweis-Badge, falls noch NICHT eingereicht
-                let rowBgClass = "bg-white hover:bg-blue-50/40";
+                // =========================================================================
+                // DESIGN-UNTERSCHEIDUNG: VOLLFLÄCHIGES KRÄFTIGES GELB IM DARK/LIGHT MODE
+                // =========================================================================
+                let rowBgClass = "";
+                let nrBadgeClass = "";
+                let titleTextClass = "";
+                let subTextClass = "";
+                let betragTextClass = "";
                 let submittedWarningBadge = "";
+
                 if (!isSubmitted) {
-                    rowBgClass = "bg-amber-50/70 hover:bg-amber-100/60 border-l-4 border-amber-400";
-                    submittedWarningBadge = `<span class="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-1.5 py-0.5 rounded mt-0.5"><i class="fa-solid fa-triangle-exclamation text-[9px]"></i> Noch nicht eingereicht</span>`;
+                    // VOLLFLÄCHIG KRÄFTIGES GELB mit schwarzer, scharfer Schrift
+                    rowBgClass = "bg-amber-300 hover:bg-amber-400/90 text-stone-950 border-b-2 border-amber-400";
+                    nrBadgeClass = "bg-amber-400 text-stone-950 border-2 border-amber-500 font-black shadow-xs";
+                    titleTextClass = "text-stone-950 font-black";
+                    subTextClass = "text-stone-800 font-semibold";
+                    betragTextClass = "text-stone-950 font-black";
+                    submittedWarningBadge = `<span class="inline-flex items-center gap-1 text-[10px] sm:text-xs font-black text-amber-950 bg-amber-400/90 px-2 py-0.5 rounded-md mt-1 border border-amber-500 shadow-2xs"><i class="fa-solid fa-triangle-exclamation text-amber-900"></i> Noch nicht eingereicht</span>`;
+                } else {
+                    // NORMAL WEISS
+                    rowBgClass = "bg-white hover:bg-blue-50/40 text-gray-800";
+                    nrBadgeClass = "bg-gray-100 text-gray-700 border-gray-200 font-bold";
+                    titleTextClass = "text-gray-900 font-semibold";
+                    subTextClass = "text-gray-400";
+                    betragTextClass = "text-gray-900 font-black";
+                    submittedWarningBadge = "";
                 }
 
                 const hasNotes = Boolean(inv.notes && inv.notes.trim() !== '');
-                const notesIcon = hasNotes ? `<i class="fa-regular fa-note-sticky text-amber-600 ml-1.5 text-xs" title="Notiz vorhanden"></i>` : '';
+                const notesIcon = hasNotes ? `<i class="fa-regular fa-note-sticky ${isSubmitted ? 'text-amber-500' : 'text-stone-900'} ml-1.5 text-xs" title="Notiz vorhanden"></i>` : '';
 
                 const item = document.createElement('div');
-                item.className = `p-3.5 sm:p-4 ${rowBgClass} active:opacity-80 transition flex items-center justify-between cursor-pointer`;
+                item.className = `p-3.5 sm:p-4 ${rowBgClass} active:opacity-85 transition flex items-center justify-between cursor-pointer`;
                 item.onclick = () => openDetailModal(inv.id);
                 item.innerHTML = `
                     <div class="flex items-center gap-3 sm:gap-4 min-w-0">
-                        <span class="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-xl ${isSubmitted ? 'bg-gray-100 text-gray-700 border-gray-200' : 'bg-amber-100 text-amber-900 border-amber-300 font-black'} font-bold text-xs sm:text-sm flex items-center justify-center border">
+                        <span class="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-xl ${nrBadgeClass} text-xs sm:text-sm flex items-center justify-center border">
                             ${displayNr}
                         </span>
                         <div class="min-w-0">
-                            <p class="text-sm sm:text-base font-semibold text-gray-900 truncate leading-tight flex items-center">
+                            <p class="text-sm sm:text-base ${titleTextClass} truncate leading-tight flex items-center">
                                 <span class="truncate">${inv.aussteller}</span>
                                 ${notesIcon}
                             </p>
-                            <p class="text-xs text-gray-400 mt-0.5">Re.-Dat: <span class="text-gray-600 font-medium">${formatDateDE(inv.reDatum) || '-'}</span></p>
+                            <p class="text-xs ${subTextClass} mt-0.5">Re.-Dat: <span class="${isSubmitted ? 'text-gray-600 font-medium' : 'text-stone-900 font-bold'}">${formatDateDE(inv.reDatum) || '-'}</span></p>
                             ${submittedWarningBadge}
                         </div>
                     </div>
 
                     <div class="text-right shrink-0 ml-3">
-                        <p class="text-sm sm:text-base font-black text-gray-900 leading-tight">${betrag.toFixed(2)} €</p>
+                        <p class="text-sm sm:text-base ${betragTextClass} leading-tight">${betrag.toFixed(2)} €</p>
                         <div class="mt-1 flex justify-end">${statusBadge}</div>
                     </div>
                 `;
@@ -683,9 +704,9 @@
                 subBtn.className = "text-xs font-semibold px-2.5 py-1 rounded-lg bg-green-100 text-green-800 hover:bg-green-200";
                 subBtn.innerHTML = `<i class="fa-solid fa-check mr-1"></i> Eingereicht (Klick zum Ändern)`;
             } else {
-                subBadge.className = "text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md";
+                subBadge.className = "text-[10px] font-bold bg-amber-200 text-amber-950 px-2 py-0.5 rounded-md border border-amber-300";
                 subBadge.innerText = "Eingereicht: Nein";
-                subBtn.className = "text-xs font-semibold px-2.5 py-1 rounded-lg bg-amber-200 text-amber-900 hover:bg-amber-300";
+                subBtn.className = "text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-300 text-stone-950 hover:bg-amber-400 border border-amber-400";
                 subBtn.innerHTML = `<i class="fa-solid fa-clock mr-1"></i> Noch offen (Klick für Ja)`;
             }
 
@@ -769,7 +790,7 @@
             document.getElementById('saveInvoiceBtn').innerText = 'Speichern';
             document.getElementById('invoiceForm').reset();
             document.getElementById('notes').value = '';
-            document.getElementById('submitted').value = 'nein'; // Standard: Nein
+            document.getElementById('submitted').value = 'nein';
             document.getElementById('invoiceNumber').value = getNextInvoiceNumber();
             document.getElementById('invoiceModal').classList.remove('hidden');
         }
