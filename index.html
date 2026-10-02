@@ -103,12 +103,12 @@
             </div>
         </header>
 
-        <!-- Finanz-Leiste in einer Zeile -->
+        <!-- Finanz-Leiste in einer Zeile (Gesamt | Offen | Erstattet) -->
         <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-4">
             <div class="grid grid-cols-3 divide-x divide-gray-100 text-center">
                 <!-- Gesamt -->
                 <div class="px-2">
-                    <p class="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-400">Gesamt</p>
+                    <p class="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-400">Gesamt (Eingereicht)</p>
                     <p id="totalSum" class="text-sm sm:text-xl md:text-2xl font-black text-gray-900 mt-0.5 truncate">0,00 €</p>
                 </div>
                 <!-- Offen (Rot) -->
@@ -294,7 +294,7 @@
                     </div>
                     <div>
                         <label class="block text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Re.-Datum</label>
-                        <input type="date" id="reDatum" class="w-full border border-gray-200 rounded-xl p-2 sm:p-2.5 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none" required>
+                        <input type="date" id="reDatum" class="w-full border border-gray-200 rounded-xl p-2.5 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none" required>
                     </div>
                 </div>
 
@@ -310,7 +310,7 @@
                     </div>
                     <div>
                         <label class="block text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Zahlungsziel</label>
-                        <input type="date" id="zahlungsziel" class="w-full border border-gray-200 rounded-xl p-2 sm:p-2.5 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        <input type="date" id="zahlungsziel" class="w-full border border-gray-200 rounded-xl p-2.5 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                 </div>
 
@@ -320,7 +320,7 @@
                         <button type="button" onclick="setTodayPaid()" class="text-[10px] sm:text-xs text-blue-600 font-semibold hover:underline">Heute</button>
                     </div>
                     <div class="flex gap-2">
-                        <input type="date" id="bezahltAm" class="w-full border border-gray-200 rounded-xl p-2 sm:p-2.5 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        <input type="date" id="bezahltAm" class="w-full border border-gray-200 rounded-xl p-2 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                         <button type="button" onclick="document.getElementById('bezahltAm').value=''" title="Feld leeren" class="px-2.5 sm:px-3 border border-gray-200 rounded-xl text-gray-400 hover:bg-gray-50"><i class="fa-solid fa-eraser text-xs"></i></button>
                     </div>
                 </div>
@@ -559,7 +559,6 @@
             return maxNr + 1;
         }
 
-        // VOLLFLÄCHIGE SIGNAL-GELBE EINFÄRBUNG FÜR NICHT EINGEREICHTE VORGÄNGE (DARK-MODE FEST)
         function renderList() {
             const list = document.getElementById('invoiceList');
             list.innerHTML = '';
@@ -585,22 +584,27 @@
                 const lbvBetrag = betrag * lbvFactor;
                 const pkvBetrag = betrag * pkvFactor;
 
-                totalSum += betrag;
-                totalLbv += lbvBetrag;
-                totalPkv += pkvBetrag;
-
                 const isLbvPaid = Boolean(inv.lbvDate);
                 const isPkvPaid = Boolean(inv.pkvDate);
-
-                if (isLbvPaid) totalLbvPaid += lbvBetrag;
-                if (isPkvPaid) totalPkvPaid += pkvBetrag;
-                if (isLbvPaid) totalSumPaid += lbvBetrag;
-                if (isPkvPaid) totalSumPaid += pkvBetrag;
 
                 const displayNr = inv.nr !== undefined ? inv.nr : (index + 1);
 
                 // Prüfen ob eingereicht (Standard: false/nein für Altdaten)
                 const isSubmitted = inv.submitted === true || inv.submitted === 'ja';
+
+                // =========================================================================
+                // WICHTIG: Nur eingereichte Vorgänge fließen in die Gesamtrechnung ein!
+                // =========================================================================
+                if (isSubmitted) {
+                    totalSum += betrag;
+                    totalLbv += lbvBetrag;
+                    totalPkv += pkvBetrag;
+
+                    if (isLbvPaid) totalLbvPaid += lbvBetrag;
+                    if (isPkvPaid) totalPkvPaid += pkvBetrag;
+                    if (isLbvPaid) totalSumPaid += lbvBetrag;
+                    if (isPkvPaid) totalSumPaid += pkvBetrag;
+                }
 
                 // Status Badge (Erstattet / Teilweise / Offen)
                 let statusBadge = '';
@@ -612,9 +616,6 @@
                     statusBadge = `<span class="inline-flex items-center text-[10px] sm:text-xs font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded border border-red-300">Offen</span>`;
                 }
 
-                // =========================================================================
-                // DESIGN-UNTERSCHEIDUNG: VOLLFLÄCHIGES KRÄFTIGES GELB IM DARK/LIGHT MODE
-                // =========================================================================
                 let rowBgClass = "";
                 let nrBadgeClass = "";
                 let titleTextClass = "";
@@ -623,7 +624,7 @@
                 let submittedWarningBadge = "";
 
                 if (!isSubmitted) {
-                    // VOLLFLÄCHIG KRÄFTIGES GELB mit schwarzer, scharfer Schrift
+                    // VOLLFLÄCHIG KRÄFTIGES GELB
                     rowBgClass = "bg-amber-300 hover:bg-amber-400/90 text-stone-950 border-b-2 border-amber-400";
                     nrBadgeClass = "bg-amber-400 text-stone-950 border-2 border-amber-500 font-black shadow-xs";
                     titleTextClass = "text-stone-950 font-black";
@@ -669,6 +670,7 @@
                 list.appendChild(item);
             });
 
+            // Gesamtsummen und Differenzen nur basierend auf eingereichten Vorgängen
             const totalOpen = Math.max(0, totalSum - totalSumPaid);
             document.getElementById('totalSum').innerText = totalSum.toFixed(2) + ' €';
             document.getElementById('totalOpen').innerText = totalOpen.toFixed(2) + ' €';
@@ -695,7 +697,6 @@
 
             document.getElementById('detailNrBadge').innerText = `Vorgang Nr. ${inv.nr || '-'}`;
             
-            // Badge für Eingereicht
             const subBadge = document.getElementById('detailSubmittedBadge');
             const subBtn = document.getElementById('toggleSubmittedBtn');
             if (isSubmitted) {
