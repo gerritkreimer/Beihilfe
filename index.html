@@ -123,7 +123,7 @@
         <div class="bg-white rounded-2xl p-2.5 sm:p-4 shadow-sm border border-gray-100 mb-2.5 sm:mb-4">
             <div class="grid grid-cols-3 divide-x divide-gray-100 text-center">
                 <div class="px-1 sm:px-2">
-                    <p class="text-[9px] sm:text-xs font-semibold uppercase tracking-wider text-gray-400 truncate">Gesamt</p>
+                    <p class="text-[9px] sm:text-xs font-semibold uppercase tracking-wider text-gray-400 truncate">Gesamt (Eingereicht)</p>
                     <p id="totalSum" class="stat-value font-black text-gray-900 mt-0.5 truncate">0,00 €</p>
                 </div>
                 <div class="px-1 sm:px-2">
@@ -444,7 +444,7 @@
             appId: "1:630498591674:web:272b1dd0077bfe0fd11383"
         };
 
-        // Eingebetteter Gemini API Key
+        // Eingebetteter Gemini API Key (wird per Header x-goog-api-key übergeben)
         const GEMINI_API_KEY = "AQ.Ab8RN6IJDT6o_oJWKPemTDZJ59ntEkjixy601DR8xDa1wPxJaA";
 
         firebase.initializeApp(firebaseConfig);
@@ -700,7 +700,7 @@
             return `${y}-${m}-${d}`;
         }
 
-        // Stufe 2: KI-Optimierung über Gemini
+        // Stufe 2: KI-Optimierung über Gemini (Header-basiert mit genauer Fehlerausgabe)
         async function runAiScan() {
             if (!transientImageData) {
                 alert('Bitte wählen Sie zuerst ein Foto aus.');
@@ -726,9 +726,12 @@
 Antworte AUSSCHLIESSLICH im gültigen JSON-Format ohne Markdown:
 {"aussteller":"...", "reDatum":"...", "termin":null, "betrag":0.00, "zahlungsziel":null}`;
 
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'x-goog-api-key': GEMINI_API_KEY.trim()
+                    },
                     body: JSON.stringify({
                         contents: [{
                             parts: [
@@ -740,6 +743,12 @@ Antworte AUSSCHLIESSLICH im gültigen JSON-Format ohne Markdown:
                 });
 
                 const data = await response.json();
+
+                if (!response.ok) {
+                    const errMsg = data.error ? data.error.message : response.statusText;
+                    throw new Error(errMsg);
+                }
+
                 const aiText = data.candidates[0].content.parts[0].text;
                 const cleanJson = aiText.replace(/```json/g, '').replace(/```/g, '').trim();
                 const parsed = JSON.parse(cleanJson);
@@ -753,7 +762,7 @@ Antworte AUSSCHLIESSLICH im gültigen JSON-Format ohne Markdown:
                 statusText.innerHTML = `<i class="fa-solid fa-check text-emerald-600 mr-1"></i> Durch KI optimiert!`;
             } catch (err) {
                 console.error("KI-Fehler:", err);
-                statusText.innerHTML = `<span class="text-red-600">KI-Analyse fehlgeschlagen.</span>`;
+                statusText.innerHTML = `<span class="text-red-600 font-semibold">Fehler: ${err.message}</span>`;
             }
         }
 
