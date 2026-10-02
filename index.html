@@ -94,7 +94,6 @@
     <!-- 2. HAUPT-APP -->
     <div id="appSection" class="hidden w-full max-w-5xl mx-auto p-2.5 sm:p-5 lg:p-6">
         
-        <!-- Headerleiste -->
         <header class="flex justify-between items-center bg-white px-3 sm:px-4 py-2.5 rounded-2xl shadow-sm border border-gray-100 mb-2.5 sm:mb-4">
             <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
                 <img src="icon.png" alt="Icon" onerror="this.classList.add('hidden'); document.getElementById('headerFallbackIcon').classList.remove('hidden');" class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl object-cover shrink-0 shadow-xs">
@@ -233,14 +232,22 @@
                     <span class="text-gray-400">Termin:</span>
                     <span id="detailTermin" class="font-medium">-</span>
                 </div>
-                <div class="flex justify-between">
+                <div class="flex justify-between items-center">
                     <span class="text-gray-400">Zahlungsziel:</span>
-                    <span id="detailZahlungsziel" class="font-medium">-</span>
+                    <span id="detailZahlungsziel" class="font-bold">-</span>
                 </div>
                 <div class="flex justify-between">
                     <span class="text-gray-400">Bezahlt an Arzt:</span>
                     <span id="detailBezahltAm" class="font-medium">-</span>
                 </div>
+            </div>
+
+            <!-- Kalender-Export-Button in den Details -->
+            <div id="detailCalendarContainer" class="hidden mb-3">
+                <button type="button" id="detailCalendarBtn" class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition">
+                    <i class="fa-regular fa-calendar-plus text-sm"></i>
+                    <span>In Kalender eintragen (Alarm -2 Tage)</span>
+                </button>
             </div>
 
             <div id="detailNotesContainer" class="hidden bg-amber-50/70 border border-amber-200/60 p-2.5 rounded-xl mb-3">
@@ -291,7 +298,6 @@
             <div class="mb-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-100">
                 <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center gap-2.5 min-w-0">
-                        <!-- Mini-Vorschau falls Bild im Cache -->
                         <img id="cachedImagePreview" class="hidden w-10 h-10 rounded-lg object-cover border border-indigo-200 shadow-2xs shrink-0" alt="Vorschau">
                         <div class="min-w-0">
                             <span class="text-xs font-bold text-blue-900 flex items-center gap-1.5 truncate">
@@ -301,7 +307,6 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-1.5 shrink-0">
-                        <!-- Erneut versuchen Button (nur aktiv wenn Bild im Speicher) -->
                         <button type="button" id="retryAiBtn" onclick="retryCachedScan()" class="hidden bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-xs font-bold px-2.5 py-2 rounded-xl shadow-xs transition flex items-center gap-1" title="Gespeichertes Foto erneut analysieren">
                             <i class="fa-solid fa-rotate-right"></i>
                             <span>Wiederholen</span>
@@ -353,8 +358,16 @@
                     </div>
                     <div>
                         <label class="block text-[11px] sm:text-xs font-medium text-gray-600 mb-1">Zahlungsziel</label>
-                        <input type="date" id="zahlungsziel" class="w-full border border-gray-200 rounded-xl p-2 sm:p-2.5 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        <input type="date" id="zahlungsziel" onchange="updateFormCalendarBtn()" class="w-full border border-gray-200 rounded-xl p-2 sm:p-2.5 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium">
                     </div>
+                </div>
+
+                <!-- Schnelltaste: Kalendererinnerung direkt im Formular -->
+                <div id="formCalendarRow" class="hidden">
+                    <button type="button" onclick="exportCalendarFromForm()" class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition">
+                        <i class="fa-regular fa-calendar-plus"></i>
+                        <span>Zahlungsziel im Kalender merken (-2 Tage Alarm)</span>
+                    </button>
                 </div>
 
                 <div>
@@ -428,8 +441,6 @@
         var invoices = [];
         var userBeihilfeRate = 70;
         var currentActiveDetailDocId = null;
-
-        // RAM-Zwischenspeicher für das zuletzt fotografierte Bild
         var inMemoryScanPayload = null;
 
         const firebaseConfig = {
@@ -645,7 +656,109 @@
         }
 
         // =========================================================================
-        // KI-SCANNER MIT RAM-ZWISCHENSPEICHERUNG & RETRY OHNE NEU-FOTOGRAFIEREN
+        // FRISTEN-AMPEL & KALENDER-ERINNERUNG (.ICS)
+        // =========================================================================
+        function getDueDateStatus(dueDateStr, isPaid) {
+            if (!dueDateStr || isPaid) return null;
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const parts = dueDateStr.split('-');
+            if (parts.length !== 3) return null;
+            const due = new Date(parts[0], parts[1] - 1, parts[2]);
+            due.setHours(0, 0, 0, 0);
+
+            const diffTime = due.getTime() - today.getTime();
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays < 0) {
+                const overdue = Math.abs(diffDays);
+                return {
+                    badge: `<span class="inline-flex items-center gap-1 text-[10px] sm:text-xs font-black text-white bg-red-600 px-1.5 py-0.5 rounded shadow-2xs mt-1 animate-pulse"><i class="fa-solid fa-triangle-exclamation"></i> Überfällig (${overdue}T)</span>`,
+                    days: diffDays
+                };
+            } else if (diffDays === 0) {
+                return {
+                    badge: `<span class="inline-flex items-center gap-1 text-[10px] sm:text-xs font-black text-white bg-red-500 px-1.5 py-0.5 rounded shadow-2xs mt-1"><i class="fa-solid fa-clock"></i> Heute fällig!</span>`,
+                    days: diffDays
+                };
+            } else if (diffDays <= 2) {
+                return {
+                    badge: `<span class="inline-flex items-center gap-1 text-[10px] sm:text-xs font-black text-amber-950 bg-amber-400 px-1.5 py-0.5 rounded shadow-2xs mt-1 border border-amber-500"><i class="fa-solid fa-bell"></i> Fällig in ${diffDays} Tag${diffDays === 1 ? '' : 'en'}</span>`,
+                    days: diffDays
+                };
+            }
+            return null;
+        }
+
+        // Erzeugt eine universelle .ics-Datei mit Alarm 2 Tage vorab um 09:00 Uhr
+        function generateCalendarReminder(aussteller, betrag, dueDateStr) {
+            if (!dueDateStr) {
+                alert('Bitte zuerst ein Zahlungsziel angeben.');
+                return;
+            }
+
+            const parts = dueDateStr.split('-');
+            const year = parts[0];
+            const month = parts[1];
+            const day = parts[2];
+
+            const startDate = `${year}${month}${day}T090000`;
+            const endDate = `${year}${month}${day}T100000`;
+            const now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+
+            const icsContent = [
+                'BEGIN:VCALENDAR',
+                'VERSION:2.0',
+                'PRODID:-//Beihilfe App//DE',
+                'CALSCALE:GREGORIAN',
+                'METHOD:PUBLISH',
+                'BEGIN:VEVENT',
+                `UID:beihilfe-${Date.now()}@beihilfe-app`,
+                `DTSTAMP:${now}`,
+                `DTSTART:${startDate}`,
+                `DTEND:${endDate}`,
+                `SUMMARY:Rechnung bezahlen: ${aussteller} (${betrag ? betrag + ' €' : ''})`,
+                `DESCRIPTION:Erinnerung aus der Beihilfe-App:\\nRechnung an ${aussteller} über ${betrag || '0,00'} € fällig am ${day}.${month}.${year}.`,
+                'STATUS:CONFIRMED',
+                'BEGIN:VALARM',
+                'TRIGGER:-P2D', // Exakt 2 Tage vorher alarmieren
+                'ACTION:DISPLAY',
+                `DESCRIPTION:Erinnerung: Rechnung ${aussteller} ist in 2 Tagen fällig!`,
+                'END:VALARM',
+                'END:VEVENT',
+                'END:VCALENDAR'
+            ].join('\r\n');
+
+            const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.setAttribute('download', `Zahlungsziel_${aussteller.replace(/\s+/g, '_')}.ics`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function updateFormCalendarBtn() {
+            const val = document.getElementById('zahlungsziel').value;
+            const row = document.getElementById('formCalendarRow');
+            if (val) {
+                row.classList.remove('hidden');
+            } else {
+                row.classList.add('hidden');
+            }
+        }
+
+        function exportCalendarFromForm() {
+            const aussteller = document.getElementById('aussteller').value || 'Arztrechnung';
+            const betrag = document.getElementById('betrag').value || '';
+            const due = document.getElementById('zahlungsziel').value;
+            generateCalendarReminder(aussteller, betrag, due);
+        }
+
+        // =========================================================================
+        // KI-SCANNER
         // =========================================================================
         function compressImage(file, maxWidth = 1600, quality = 0.85) {
             return new Promise((resolve, reject) => {
@@ -681,7 +794,6 @@
             statusText.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i> Foto wird vorbereitet...`;
 
             try {
-                // Bild komprimieren & im RAM zwischenspeichern
                 const compressedDataUrl = await compressImage(file);
                 const base64Data = compressedDataUrl.split(',')[1];
                 
@@ -691,12 +803,10 @@
                     mimeType: 'image/jpeg'
                 };
 
-                // Mini-Vorschau anzeigen
                 const previewImg = document.getElementById('cachedImagePreview');
                 previewImg.src = compressedDataUrl;
                 previewImg.classList.remove('hidden');
 
-                // Direkten Scan ausführen
                 await executeAiScan();
             } catch (err) {
                 console.error("Scan-Fehler:", err);
@@ -706,7 +816,6 @@
             }
         }
 
-        // Erneuter Versuch mit dem bereits im RAM liegenden Foto (ohne Neufoto)
         async function retryCachedScan() {
             if (!inMemoryScanPayload) {
                 alert('Kein Foto im Speicher. Bitte ein neues Foto aufnehmen.');
@@ -733,7 +842,6 @@
 Antworte AUSSCHLIESSLICH im gültigen JSON-Format ohne Markdown:
 {"aussteller":"...", "reDatum":"...", "termin":null, "betrag":0.00, "zahlungsziel":null}`;
 
-            // Kaskade der aktuellen 2026er Modelle
             const candidateModels = [
                 'gemini-3.8-flash',
                 'gemini-3.5-flash-lite',
@@ -761,496 +869,8 @@ Antworte AUSSCHLIESSLICH im gültigen JSON-Format ohne Markdown:
                     });
 
                     const data = await response.json();
-
                     if (data.error) continue;
 
                     if (data.candidates && data.candidates[0] && data.candidates[0].content) {
                         const aiText = data.candidates[0].content.parts[0].text;
-                        const cleanJson = aiText.replace(/```json/g, '').replace(/```/g, '').trim();
-                        parsed = JSON.parse(cleanJson);
-                        break;
-                    }
-                } catch (err) {
-                    continue;
-                }
-            }
-
-            if (parsed) {
-                if (parsed.aussteller) document.getElementById('aussteller').value = parsed.aussteller;
-                if (parsed.reDatum) document.getElementById('reDatum').value = parsed.reDatum;
-                if (parsed.termin) document.getElementById('termin').value = parsed.termin;
-                if (parsed.betrag) document.getElementById('betrag').value = parseFloat(parsed.betrag).toFixed(2);
-                if (parsed.zahlungsziel) document.getElementById('zahlungsziel').value = parsed.zahlungsziel;
-
-                statusText.innerHTML = `<i class="fa-solid fa-check text-emerald-600 mr-1.5"></i> Erfolgreich per KI ausgelesen!`;
-                retryBtn.classList.add('hidden');
-            } else {
-                // Bei Überlastung Button zum erneuten Versuchen OHNE Neufotografieren anzeigen
-                statusText.innerHTML = `<span class="text-amber-800 font-semibold">KI-Server kurz überlastet. Foto ist gespeichert!</span>`;
-                retryBtn.classList.remove('hidden');
-            }
-        }
-
-        // =========================================================================
-        // TABELLEN- & LISTENLOGIK
-        // =========================================================================
-        function renderList() {
-            const list = document.getElementById('invoiceList');
-            list.innerHTML = '';
-            
-            let totalSum = 0;
-            let totalLbv = 0;
-            let totalPkv = 0;
-            let totalSumPaid = 0;
-            let totalLbvPaid = 0;
-            let totalPkvPaid = 0;
-
-            const lbvFactor = userBeihilfeRate / 100;
-            const pkvFactor = (100 - userBeihilfeRate) / 100;
-
-            document.getElementById('invoiceCount').innerText = invoices.length;
-
-            if (invoices.length === 0) {
-                list.innerHTML = `<div class="p-8 text-center text-xs sm:text-sm text-gray-400">Keine Rechnungen eingetragen.<br>Klicken Sie oben auf „+ Neu“.</div>`;
-            }
-
-            invoices.forEach((inv, index) => {
-                const betrag = parseFloat(inv.betrag) || 0;
-                const lbvBetrag = betrag * lbvFactor;
-                const pkvBetrag = betrag * pkvFactor;
-
-                const isLbvPaid = Boolean(inv.lbvDate);
-                const isPkvPaid = Boolean(inv.pkvDate);
-                const displayNr = inv.nr !== undefined ? inv.nr : (index + 1);
-                const isSubmitted = inv.submitted === true || inv.submitted === 'ja';
-
-                if (isSubmitted) {
-                    totalSum += betrag;
-                    totalLbv += lbvBetrag;
-                    totalPkv += pkvBetrag;
-
-                    if (isLbvPaid) totalLbvPaid += lbvBetrag;
-                    if (isPkvPaid) totalPkvPaid += pkvBetrag;
-                    if (isLbvPaid) totalSumPaid += lbvBetrag;
-                    if (isPkvPaid) totalSumPaid += pkvBetrag;
-                }
-
-                let statusBadge = '';
-                if (isLbvPaid && isPkvPaid) {
-                    statusBadge = `<span class="inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300"><i class="fa-solid fa-check text-[9px]"></i> Erstattet</span>`;
-                } else if (isLbvPaid || isPkvPaid) {
-                    statusBadge = `<span class="inline-flex items-center text-[10px] sm:text-xs font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">Teilweise</span>`;
-                } else {
-                    statusBadge = `<span class="inline-flex items-center text-[10px] sm:text-xs font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded border border-red-300">Offen</span>`;
-                }
-
-                let rowBgClass = "";
-                let nrBadgeClass = "";
-                let titleTextClass = "";
-                let subTextClass = "";
-                let betragTextClass = "";
-                let submittedWarningBadge = "";
-
-                if (!isSubmitted) {
-                    rowBgClass = "bg-amber-300 hover:bg-amber-400/90 text-stone-950 border-b border-amber-400";
-                    nrBadgeClass = "bg-amber-400 text-stone-950 border-2 border-amber-500 font-black shadow-xs";
-                    titleTextClass = "text-stone-950 font-black";
-                    subTextClass = "text-stone-800 font-semibold";
-                    betragTextClass = "text-stone-950 font-black";
-                    submittedWarningBadge = `<span class="inline-flex items-center gap-1 text-[10px] sm:text-xs font-black text-amber-950 bg-amber-400/90 px-1.5 py-0.5 rounded-md mt-0.5 border border-amber-500 shadow-2xs"><i class="fa-solid fa-triangle-exclamation text-amber-900"></i> Noch nicht eingereicht</span>`;
-                } else {
-                    rowBgClass = "bg-white hover:bg-blue-50/40 text-gray-800";
-                    nrBadgeClass = "bg-gray-100 text-gray-700 border-gray-200 font-bold";
-                    titleTextClass = "text-gray-900 font-semibold";
-                    subTextClass = "text-gray-400";
-                    betragTextClass = "text-gray-900 font-black";
-                    submittedWarningBadge = "";
-                }
-
-                const hasNotes = Boolean(inv.notes && inv.notes.trim() !== '');
-                const notesIcon = hasNotes ? `<i class="fa-regular fa-note-sticky ${isSubmitted ? 'text-amber-500' : 'text-stone-900'} ml-1 text-xs" title="Notiz vorhanden"></i>` : '';
-
-                const item = document.createElement('div');
-                item.className = `p-3 sm:p-4 ${rowBgClass} active:opacity-85 transition flex items-center justify-between cursor-pointer`;
-                item.onclick = () => openDetailModal(inv.id);
-                item.innerHTML = `
-                    <div class="flex items-center gap-2.5 sm:gap-4 min-w-0">
-                        <span class="w-7 h-7 sm:w-9 sm:h-9 shrink-0 rounded-xl ${nrBadgeClass} text-xs sm:text-sm flex items-center justify-center border">
-                            ${displayNr}
-                        </span>
-                        <div class="min-w-0">
-                            <p class="text-xs sm:text-base ${titleTextClass} truncate leading-tight flex items-center">
-                                <span class="truncate">${inv.aussteller}</span>
-                                ${notesIcon}
-                            </p>
-                            <p class="text-[11px] sm:text-xs ${subTextClass} mt-0.5 truncate">Re.-Dat: <span class="${isSubmitted ? 'text-gray-600 font-medium' : 'text-stone-900 font-bold'}">${formatDateDE(inv.reDatum) || '-'}</span></p>
-                            ${submittedWarningBadge}
-                        </div>
-                    </div>
-
-                    <div class="text-right shrink-0 ml-2">
-                        <p class="text-xs sm:text-base ${betragTextClass} leading-tight">${betrag.toFixed(2)} €</p>
-                        <div class="mt-1 flex justify-end">${statusBadge}</div>
-                    </div>
-                `;
-                list.appendChild(item);
-            });
-
-            const totalOpen = Math.max(0, totalSum - totalSumPaid);
-            document.getElementById('totalSum').innerText = totalSum.toFixed(2) + ' €';
-            document.getElementById('totalOpen').innerText = totalOpen.toFixed(2) + ' €';
-            document.getElementById('totalPaid').innerText = totalSumPaid.toFixed(2) + ' €';
-
-            document.getElementById('totalLbv').innerText = totalLbv.toFixed(2) + ' €';
-            document.getElementById('totalLbvPaid').innerText = totalLbvPaid.toFixed(2) + ' €';
-            document.getElementById('totalPkv').innerText = totalPkv.toFixed(2) + ' €';
-            document.getElementById('totalPkvPaid').innerText = totalPkvPaid.toFixed(2) + ' €';
-        }
-
-        function openDetailModal(docId) {
-            const inv = invoices.find(i => i.id === docId);
-            if (!inv) return;
-            currentActiveDetailDocId = docId;
-
-            const lbvPct = userBeihilfeRate;
-            const pkvPct = 100 - userBeihilfeRate;
-            const betrag = parseFloat(inv.betrag) || 0;
-            const lbvBetrag = betrag * (lbvPct / 100);
-            const pkvBetrag = betrag * (pkvPct / 100);
-            const isSubmitted = inv.submitted === true || inv.submitted === 'ja';
-
-            document.getElementById('detailNrBadge').innerText = `Vorgang Nr. ${inv.nr || '-'}`;
-            
-            const subBadge = document.getElementById('detailSubmittedBadge');
-            const subBtn = document.getElementById('toggleSubmittedBtn');
-            if (isSubmitted) {
-                subBadge.className = "text-[10px] font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded-md";
-                subBadge.innerText = "Eingereicht: Ja";
-                subBtn.className = "text-xs font-semibold px-2.5 py-1 rounded-lg bg-green-100 text-green-800 hover:bg-green-200";
-                subBtn.innerHTML = `<i class="fa-solid fa-check mr-1"></i> Eingereicht (Klick zum Ändern)`;
-            } else {
-                subBadge.className = "text-[10px] font-bold bg-amber-200 text-amber-950 px-2 py-0.5 rounded-md border border-amber-300";
-                subBadge.innerText = "Eingereicht: Nein";
-                subBtn.className = "text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-300 text-stone-950 hover:bg-amber-400 border border-amber-400";
-                subBtn.innerHTML = `<i class="fa-solid fa-clock mr-1"></i> Noch offen (Klick für Ja)`;
-            }
-
-            document.getElementById('detailAussteller').innerText = inv.aussteller;
-            document.getElementById('detailReDatum').innerText = `Rechnungsdatum: ${formatDateDE(inv.reDatum) || '-'}`;
-            document.getElementById('detailBetrag').innerText = `${betrag.toFixed(2)} €`;
-
-            document.getElementById('detailTermin').innerText = formatDateDE(inv.termin) || '-';
-            document.getElementById('detailZahlungsziel').innerText = formatDateDE(inv.zahlungsziel) || '-';
-            document.getElementById('detailBezahltAm').innerText = formatDateDE(inv.bezahltAm) || 'Noch nicht bezahlt';
-
-            const notesContainer = document.getElementById('detailNotesContainer');
-            if (inv.notes && inv.notes.trim() !== '') {
-                document.getElementById('detailNotesText').innerText = inv.notes;
-                notesContainer.classList.remove('hidden');
-            } else {
-                notesContainer.classList.add('hidden');
-            }
-
-            document.getElementById('detailLbvTitle').innerText = `LBV (${lbvPct}%)`;
-            document.getElementById('detailLbvAmount').innerText = `${lbvBetrag.toFixed(2)} €`;
-            const lbvBtn = document.getElementById('detailLbvBtn');
-            if (inv.lbvDate) {
-                lbvBtn.className = "text-xs px-2.5 py-1.5 rounded-lg font-semibold bg-emerald-600 text-white shadow-xs";
-                lbvBtn.innerHTML = `<i class="fa-solid fa-check text-[10px] mr-1"></i> Erhalten: ${formatDateDE(inv.lbvDate)}`;
-            } else {
-                lbvBtn.className = "text-xs px-2.5 py-1.5 rounded-lg font-semibold bg-white text-blue-700 border border-blue-200";
-                lbvBtn.innerText = "+ Datum eintragen";
-            }
-
-            document.getElementById('detailPkvTitle').innerText = `PKV (${pkvPct}%)`;
-            document.getElementById('detailPkvAmount').innerText = `${pkvBetrag.toFixed(2)} €`;
-            const pkvBtn = document.getElementById('detailPkvBtn');
-            if (inv.pkvDate) {
-                pkvBtn.className = "text-xs px-2.5 py-1.5 rounded-lg font-semibold bg-emerald-600 text-white shadow-xs";
-                pkvBtn.innerHTML = `<i class="fa-solid fa-check text-[10px] mr-1"></i> Erhalten: ${formatDateDE(inv.pkvDate)}`;
-            } else {
-                pkvBtn.className = "text-xs px-2.5 py-1.5 rounded-lg font-semibold bg-white text-indigo-700 border border-indigo-200";
-                pkvBtn.innerText = "+ Datum eintragen";
-            }
-
-            document.getElementById('detailEditBtn').onclick = () => {
-                closeDetailModal();
-                openEditModal(docId);
-            };
-            document.getElementById('detailDeleteBtn').onclick = () => {
-                closeDetailModal();
-                deleteInvoice(docId);
-            };
-
-            document.getElementById('detailViewModal').classList.remove('hidden');
-        }
-
-        function closeDetailModal() {
-            document.getElementById('detailViewModal').classList.add('hidden');
-            currentActiveDetailDocId = null;
-        }
-
-        async function toggleSubmittedDirect() {
-            if (!currentActiveDetailDocId || !currentUser) return;
-            const inv = invoices.find(i => i.id === currentActiveDetailDocId);
-            if (!inv) return;
-            
-            const currentSub = inv.submitted === true || inv.submitted === 'ja';
-            const newSub = !currentSub;
-            
-            await db.collection('users').doc(currentUser.uid).collection('invoices').doc(currentActiveDetailDocId).update({
-                submitted: newSub
-            });
-        }
-
-        function triggerPayoutFromDetail(type) {
-            if (!currentActiveDetailDocId) return;
-            openPayoutModal(currentActiveDetailDocId, type);
-        }
-
-        function resetScannerState() {
-            inMemoryScanPayload = null;
-            document.getElementById('billScanInput').value = '';
-            document.getElementById('scanStatusBox').classList.add('hidden');
-            document.getElementById('retryAiBtn').classList.add('hidden');
-            const preview = document.getElementById('cachedImagePreview');
-            preview.src = '';
-            preview.classList.add('hidden');
-        }
-
-        function openModal() {
-            document.getElementById('editInvoiceId').value = '';
-            document.getElementById('oldInvoiceNumber').value = '';
-            document.getElementById('invoiceModalTitle').innerText = 'Neue Rechnung erfassen';
-            document.getElementById('saveInvoiceBtn').innerText = 'Speichern';
-            document.getElementById('invoiceForm').reset();
-            document.getElementById('notes').value = '';
-            document.getElementById('submitted').value = 'nein';
-            document.getElementById('invoiceNumber').value = getNextInvoiceNumber();
-            resetScannerState();
-            document.getElementById('invoiceModal').classList.remove('hidden');
-        }
-
-        function openEditModal(docId) {
-            const inv = invoices.find(i => i.id === docId);
-            if (!inv) return;
-
-            document.getElementById('editInvoiceId').value = docId;
-            document.getElementById('oldInvoiceNumber').value = inv.nr !== undefined ? inv.nr : 1;
-            document.getElementById('invoiceModalTitle').innerText = 'Rechnung bearbeiten';
-            document.getElementById('saveInvoiceBtn').innerText = 'Aktualisieren';
-
-            document.getElementById('invoiceNumber').value = inv.nr !== undefined ? inv.nr : 1;
-            document.getElementById('termin').value = inv.termin || '';
-            document.getElementById('reDatum').value = inv.reDatum || '';
-            document.getElementById('aussteller').value = inv.aussteller || '';
-            document.getElementById('betrag').value = inv.betrag || '';
-            document.getElementById('zahlungsziel').value = inv.zahlungsziel || '';
-            document.getElementById('bezahltAm').value = inv.bezahltAm || '';
-            document.getElementById('notes').value = inv.notes || '';
-            
-            const isSub = inv.submitted === true || inv.submitted === 'ja';
-            document.getElementById('submitted').value = isSub ? 'ja' : 'nein';
-
-            resetScannerState();
-            document.getElementById('invoiceModal').classList.remove('hidden');
-        }
-
-        function closeModal() {
-            document.getElementById('invoiceModal').classList.add('hidden');
-            document.getElementById('invoiceForm').reset();
-            resetScannerState();
-        }
-
-        function setTodayPaid() {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('bezahltAm').value = today;
-        }
-
-        async function saveInvoice(e) {
-            if (e && e.preventDefault) e.preventDefault();
-            if (!currentUser) return;
-
-            const editId = document.getElementById('editInvoiceId').value;
-            const targetNr = parseInt(document.getElementById('invoiceNumber').value) || 1;
-            const oldNr = document.getElementById('oldInvoiceNumber').value ? parseInt(document.getElementById('oldInvoiceNumber').value) : null;
-            const isSubmittedVal = document.getElementById('submitted').value === 'ja';
-
-            const invoiceData = {
-                nr: targetNr,
-                termin: document.getElementById('termin').value,
-                reDatum: document.getElementById('reDatum').value,
-                aussteller: document.getElementById('aussteller').value,
-                betrag: parseFloat(document.getElementById('betrag').value),
-                zahlungsziel: document.getElementById('zahlungsziel').value,
-                bezahltAm: document.getElementById('bezahltAm').value || null,
-                submitted: isSubmittedVal,
-                notes: document.getElementById('notes').value.trim() || null
-            };
-
-            const userInvoicesRef = db.collection('users').doc(currentUser.uid).collection('invoices');
-            const batch = db.batch();
-
-            if (editId) {
-                if (oldNr !== null && oldNr !== targetNr) {
-                    if (targetNr < oldNr) {
-                        invoices.forEach(inv => {
-                            if (inv.id !== editId && inv.nr >= targetNr && inv.nr < oldNr) {
-                                batch.update(userInvoicesRef.doc(inv.id), { nr: inv.nr + 1 });
-                            }
-                        });
-                    } else {
-                        invoices.forEach(inv => {
-                            if (inv.id !== editId && inv.nr > oldNr && inv.nr <= targetNr) {
-                                batch.update(userInvoicesRef.doc(inv.id), { nr: inv.nr - 1 });
-                            }
-                        });
-                    }
-                }
-                batch.update(userInvoicesRef.doc(editId), invoiceData);
-            } else {
-                invoices.forEach(inv => {
-                    if (inv.nr >= targetNr) {
-                        batch.update(userInvoicesRef.doc(inv.id), { nr: inv.nr + 1 });
-                    }
-                });
-
-                invoiceData.lbvDate = null;
-                invoiceData.pkvDate = null;
-                invoiceData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-
-                const newDocRef = userInvoicesRef.doc();
-                batch.set(newDocRef, invoiceData);
-            }
-
-            await batch.commit();
-            closeModal();
-        }
-
-        async function deleteInvoice(docId) {
-            const invToDelete = invoices.find(i => i.id === docId);
-            if (!invToDelete) return;
-
-            if (confirm(`Diesen Vorgang (Nr. ${invToDelete.nr}) wirklich löschen?\nAlle nachfolgenden Nummern rücken automatisch nach.`)) {
-                const deletedNr = invToDelete.nr;
-                const userInvoicesRef = db.collection('users').doc(currentUser.uid).collection('invoices');
-                const batch = db.batch();
-
-                batch.delete(userInvoicesRef.doc(docId));
-
-                invoices.forEach(inv => {
-                    if (inv.id !== docId && inv.nr > deletedNr) {
-                        batch.update(userInvoicesRef.doc(inv.id), { nr: inv.nr - 1 });
-                    }
-                });
-
-                await batch.commit();
-            }
-        }
-
-        function openPayoutModal(docId, type) {
-            const inv = invoices.find(i => i.id === docId);
-            if (!inv) return;
-
-            const lbvPct = userBeihilfeRate;
-            const pkvPct = 100 - userBeihilfeRate;
-
-            document.getElementById('payoutDocId').value = docId;
-            document.getElementById('payoutType').value = type;
-            document.getElementById('payoutModalTitle').innerText = (type === 'lbv' ? `LBV (${lbvPct}%) Eingang` : `PKV (${pkvPct}%) Eingang`);
-            document.getElementById('payoutDateInput').value = type === 'lbv' ? (inv.lbvDate || '') : (inv.pkvDate || '');
-            
-            document.getElementById('payoutModal').classList.remove('hidden');
-        }
-
-        function closePayoutModal() {
-            document.getElementById('payoutModal').classList.add('hidden');
-        }
-
-        function setTodayPayout() {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('payoutDateInput').value = today;
-        }
-
-        async function savePayout(e) {
-            if (e && e.preventDefault) e.preventDefault();
-            const docId = document.getElementById('payoutDocId').value;
-            const type = document.getElementById('payoutType').value;
-            const dateVal = document.getElementById('payoutDateInput').value;
-
-            const updateData = {};
-            if (type === 'lbv') updateData.lbvDate = dateVal;
-            if (type === 'pkv') updateData.pkvDate = dateVal;
-
-            await db.collection('users').doc(currentUser.uid).collection('invoices').doc(docId).update(updateData);
-            closePayoutModal();
-        }
-
-        async function clearPayout() {
-            const docId = document.getElementById('payoutDocId').value;
-            const type = document.getElementById('payoutType').value;
-
-            const updateData = {};
-            if (type === 'lbv') updateData.lbvDate = null;
-            if (type === 'pkv') updateData.pkvDate = null;
-
-            await db.collection('users').doc(currentUser.uid).collection('invoices').doc(docId).update(updateData);
-            closePayoutModal();
-        }
-
-        function exportToExcel() {
-            if (!invoices || invoices.length === 0) {
-                alert('Keine Rechnungen vorhanden.');
-                return;
-            }
-
-            const lbvPct = userBeihilfeRate;
-            const pkvPct = 100 - userBeihilfeRate;
-            const lbvFactor = lbvPct / 100;
-            const pkvFactor = pkvPct / 100;
-
-            const excelData = invoices.map((inv, idx) => {
-                const betrag = parseFloat(inv.betrag) || 0;
-                const isSub = inv.submitted === true || inv.submitted === 'ja';
-                return {
-                    "Nr.": inv.nr !== undefined ? inv.nr : (idx + 1),
-                    "Eingereicht?": isSub ? "Ja" : "Nein",
-                    "Termin": formatDateDE(inv.termin),
-                    "Re.-Datum": formatDateDE(inv.reDatum),
-                    "Rechnungsaussteller": inv.aussteller,
-                    "Rechnungsbetrag (€)": Number(betrag.toFixed(2)),
-                    "Zahlungsziel": formatDateDE(inv.zahlungsziel),
-                    "Bezahlt am (an Arzt)": formatDateDE(inv.bezahltAm),
-                    [`LBV Erwartet (${lbvPct}% €)`]: Number((betrag * lbvFactor).toFixed(2)),
-                    "LBV Erstattet am": formatDateDE(inv.lbvDate),
-                    [`PKV Erwartet (${pkvPct}% €)`]: Number((betrag * pkvFactor).toFixed(2)),
-                    "PKV Erstattet am": formatDateDE(inv.pkvDate),
-                    "Notizen": inv.notes || ''
-                };
-            });
-
-            const worksheet = XLSX.utils.json_to_sheet(excelData);
-            worksheet['!cols'] = [
-                { wch: 8 },  // Nr
-                { wch: 14 }, // Eingereicht
-                { wch: 12 }, // Termin
-                { wch: 12 }, // Re-Datum
-                { wch: 28 }, // Aussteller
-                { wch: 18 }, // Betrag
-                { wch: 14 }, // Zahlungsziel
-                { wch: 20 }, // Bezahlt am
-                { wch: 20 }, // LBV Erwartet
-                { wch: 18 }, // LBV Erstattet
-                { wch: 20 }, // PKV Erwartet
-                { wch: 18 }, // PKV Erstattet
-                { wch: 35 }  // Notizen
-            ];
-
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Beihilfe");
-            const today = new Date().toISOString().split('T')[0];
-            XLSX.writeFile(workbook, `Beihilfe_${today}.xlsx`);
-        }
-    </script>
-</body>
-</html>
+                        const cleanJson = aiText.replace(/```json/g, '').replace(/
