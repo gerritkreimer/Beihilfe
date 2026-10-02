@@ -425,6 +425,16 @@
 
     <!-- JavaScript Logik -->
     <script>
+        // =========================================================================
+        // GLOBALE VARIABLEN (MIT VAR GEGEN INITIALISIERUNGSFEHLER GESICHERT)
+        // =========================================================================
+        var isRegistering = false;
+        var currentUser = null;
+        var invoices = [];
+        var userBeihilfeRate = 70;
+        var currentActiveDetailDocId = null;
+        var transientImageData = null;
+
         const firebaseConfig = {
             apiKey: "AIzaSyDOeM9ePDWeKiHSj4Mgi6c5bgUHTxMGNQM",
             authDomain: "beihilfe-app-ce6fc.firebaseapp.com",
@@ -434,21 +444,12 @@
             appId: "1:630498591674:web:272b1dd0077bfe0fd11383"
         };
 
-        // Fest hinterlegter Gemini API Key
+        // Eingebetteter Gemini API Key
         const GEMINI_API_KEY = "AQ.Ab8RN6IJDT6o_oJWKPemTDZJ59ntEkjixy601DR8xDa1wPxJaA";
 
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
-
-        let currentUser = null;
-        let invoices = [];
-        let isRegistering = false;
-        let userBeihilfeRate = 70;
-        let currentActiveDetailDocId = null;
-
-        // Flüchtiger Bildspeicher im RAM (wird nach Modal-Schließen sofort geleert)
-        let transientImageData = null;
 
         function togglePasswordVisibility() {
             const pwdInput = document.getElementById('authPassword');
@@ -631,7 +632,6 @@
                 transientImageData = event.target.result;
                 aiContainer.classList.remove('hidden');
 
-                // Stufe 1: Lokale Texterkennung
                 try {
                     statusText.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Lese Text lokal auf dem Smartphone...`;
                     
