@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
     <title>Beihilfe-App</title>
     
-    <!-- App-Icons & PWA-Metadaten -->
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="manifest" href="manifest.json">
@@ -27,12 +26,8 @@
         }
     </style>
 
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- SheetJS für Excel-Export -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <!-- Firebase SDKs -->
@@ -77,8 +72,9 @@
 
                 <div id="authError" class="hidden p-2.5 bg-red-50 text-red-600 text-xs rounded-xl border border-red-100"></div>
 
-                <button type="submit" id="authSubmitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-xl transition text-sm shadow-sm">
-                    Einloggen
+                <button type="submit" id="authSubmitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-xl transition text-sm shadow-sm flex items-center justify-center gap-2">
+                    <span id="authBtnSpinner" class="hidden"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                    <span id="authBtnText">Einloggen</span>
                 </button>
             </form>
 
@@ -92,8 +88,6 @@
 
     <!-- 2. HAUPT-APP -->
     <div id="appSection" class="hidden w-full max-w-5xl mx-auto p-2.5 sm:p-5 lg:p-6">
-        
-        <!-- Headerleiste -->
         <header class="flex justify-between items-center bg-white px-3 sm:px-4 py-2.5 rounded-2xl shadow-sm border border-gray-100 mb-2.5 sm:mb-4">
             <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
                 <img src="icon.png" alt="Icon" onerror="this.classList.add('hidden'); document.getElementById('headerFallbackIcon').classList.remove('hidden');" class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl object-cover shrink-0 shadow-xs">
@@ -278,7 +272,7 @@
         </div>
     </div>
 
-    <!-- MODAL: Rechnung anlegen / bearbeiten (DIREKTER KI-SCANNER) -->
+    <!-- MODAL: Rechnung anlegen / bearbeiten -->
     <div id="invoiceModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs hidden flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
         <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-3">
@@ -304,7 +298,6 @@
                     </div>
                 </div>
 
-                <!-- Statusanzeige -->
                 <div id="scanStatusBox" class="hidden mt-2 pt-2 border-t border-blue-200/60">
                     <div class="flex items-center justify-between text-xs font-medium text-indigo-900">
                         <span id="scanStatusText"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> KI analysiert Rechnung...</span>
@@ -413,11 +406,14 @@
 
     <!-- JavaScript Logik -->
     <script>
-        var isRegistering = false;
-        var currentUser = null;
-        var invoices = [];
-        var userBeihilfeRate = 70;
-        var currentActiveDetailDocId = null;
+        // Sichere globale Initialisierung
+        window.appState = {
+            isRegistering: false,
+            currentUser: null,
+            invoices: [],
+            userBeihilfeRate: 70,
+            currentActiveDetailDocId: null
+        };
 
         const firebaseConfig = {
             apiKey: "AIzaSyDOeM9ePDWeKiHSj4Mgi6c5bgUHTxMGNQM",
@@ -449,24 +445,29 @@
         }
 
         function toggleAuthMode() {
-            isRegistering = !isRegistering;
-            document.getElementById('authTitle').innerText = isRegistering ? 'Registrieren' : 'Anmeldung';
-            document.getElementById('authSubmitBtn').innerText = isRegistering ? 'Konto erstellen' : 'Einloggen';
-            document.getElementById('toggleAuthBtn').innerText = isRegistering ? 'Bereits ein Konto? Hier anmelden' : 'Noch kein Konto? Hier registrieren';
-            document.getElementById('nameField').classList.toggle('hidden', !isRegistering);
+            window.appState.isRegistering = !window.appState.isRegistering;
+            document.getElementById('authTitle').innerText = window.appState.isRegistering ? 'Registrieren' : 'Anmeldung';
+            document.getElementById('authBtnText').innerText = window.appState.isRegistering ? 'Konto erstellen' : 'Einloggen';
+            document.getElementById('toggleAuthBtn').innerText = window.appState.isRegistering ? 'Bereits ein Konto? Hier anmelden' : 'Noch kein Konto? Hier registrieren';
+            document.getElementById('nameField').classList.toggle('hidden', !window.appState.isRegistering);
             document.getElementById('authError').classList.add('hidden');
         }
 
         async function handleAuth(e) {
             e.preventDefault();
-            const email = document.getElementById('authEmail').value;
+            const email = document.getElementById('authEmail').value.trim();
             const password = document.getElementById('authPassword').value;
             const errDiv = document.getElementById('authError');
+            const spinner = document.getElementById('authBtnSpinner');
+            const btnText = document.getElementById('authBtnText');
+            
             errDiv.classList.add('hidden');
+            spinner.classList.remove('hidden');
+            btnText.innerText = 'Bitte warten...';
 
             try {
-                if (isRegistering) {
-                    const name = document.getElementById('authName').value;
+                if (window.appState.isRegistering) {
+                    const name = document.getElementById('authName').value.trim();
                     const cred = await auth.createUserWithEmailAndPassword(email, password);
                     if (name) {
                         await cred.user.updateProfile({ displayName: name });
@@ -476,12 +477,18 @@
                     await auth.signInWithEmailAndPassword(email, password);
                 }
             } catch (err) {
+                console.error("Auth-Fehler:", err);
                 let msg = err.message;
                 if (err.code === 'auth/weak-password') msg = 'Mindestens 6 Zeichen erforderlich.';
                 if (err.code === 'auth/email-already-in-use') msg = 'Diese E-Mail ist bereits vergeben.';
-                if (err.code === 'auth/invalid-credential') msg = 'E-Mail oder Passwort nicht korrekt.';
+                if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+                    msg = 'E-Mail-Adresse oder Passwort nicht korrekt.';
+                }
                 errDiv.innerText = msg;
                 errDiv.classList.remove('hidden');
+            } finally {
+                spinner.classList.add('hidden');
+                btnText.innerText = window.appState.isRegistering ? 'Konto erstellen' : 'Einloggen';
             }
         }
 
@@ -491,7 +498,7 @@
         }
 
         auth.onAuthStateChanged(async user => {
-            currentUser = user;
+            window.appState.currentUser = user;
             if (user) {
                 document.getElementById('authSection').classList.add('hidden');
                 document.getElementById('appSection').classList.remove('hidden');
@@ -500,35 +507,35 @@
                 try {
                     const doc = await db.collection('users').doc(user.uid).get();
                     if (doc.exists && doc.data().beihilfeRate) {
-                        userBeihilfeRate = Number(doc.data().beihilfeRate);
+                        window.appState.userBeihilfeRate = Number(doc.data().beihilfeRate);
                     } else {
-                        userBeihilfeRate = 70;
+                        window.appState.userBeihilfeRate = 70;
                     }
                 } catch(e) {
-                    userBeihilfeRate = 70;
+                    window.appState.userBeihilfeRate = 70;
                 }
-                document.getElementById('beihilfeRateSelect').value = userBeihilfeRate.toString();
+                document.getElementById('beihilfeRateSelect').value = window.appState.userBeihilfeRate.toString();
                 updateLabels();
                 listenToInvoices();
             } else {
                 document.getElementById('authSection').classList.remove('hidden');
                 document.getElementById('appSection').classList.add('hidden');
-                invoices = [];
+                window.appState.invoices = [];
             }
         });
 
         async function changeBeihilfeRate(rate) {
-            userBeihilfeRate = Number(rate);
+            window.appState.userBeihilfeRate = Number(rate);
             updateLabels();
             renderList();
-            if (currentUser) {
-                await db.collection('users').doc(currentUser.uid).set({ beihilfeRate: userBeihilfeRate }, { merge: true });
+            if (window.appState.currentUser) {
+                await db.collection('users').doc(window.appState.currentUser.uid).set({ beihilfeRate: window.appState.userBeihilfeRate }, { merge: true });
             }
         }
 
         function updateLabels() {
-            const lbvPct = userBeihilfeRate;
-            const pkvPct = 100 - userBeihilfeRate;
+            const lbvPct = window.appState.userBeihilfeRate;
+            const pkvPct = 100 - window.appState.userBeihilfeRate;
             document.getElementById('cardLbvTitle').innerText = `LBV (${lbvPct}%)`;
             document.getElementById('cardPkvTitle').innerText = `PKV (${pkvPct}%)`;
         }
@@ -555,21 +562,21 @@
         function listenToInvoices() {
             if (unsubscribe) unsubscribe();
             
-            unsubscribe = db.collection('users').doc(currentUser.uid).collection('invoices')
+            unsubscribe = db.collection('users').doc(window.appState.currentUser.uid).collection('invoices')
                 .onSnapshot(snapshot => {
-                    invoices = [];
+                    window.appState.invoices = [];
                     snapshot.forEach(doc => {
-                        invoices.push({ id: doc.id, ...doc.data() });
+                        window.appState.invoices.push({ id: doc.id, ...doc.data() });
                     });
-                    invoices.sort((a, b) => {
+                    window.appState.invoices.sort((a, b) => {
                         const nrA = a.nr !== undefined ? Number(a.nr) : 999999;
                         const nrB = b.nr !== undefined ? Number(b.nr) : 999999;
                         if (nrA !== nrB) return nrA - nrB;
                         return (a.reDatum || '').localeCompare(b.reDatum || '');
                     });
                     renderList();
-                    if (currentActiveDetailDocId) {
-                        openDetailModal(currentActiveDetailDocId);
+                    if (window.appState.currentActiveDetailDocId) {
+                        openDetailModal(window.appState.currentActiveDetailDocId);
                     }
                 }, error => {
                     console.error("Fehler beim Laden:", error);
@@ -584,9 +591,9 @@
         }
 
         function getNextInvoiceNumber() {
-            if (!invoices || invoices.length === 0) return 1;
+            if (!window.appState.invoices || window.appState.invoices.length === 0) return 1;
             let maxNr = 0;
-            invoices.forEach(inv => {
+            window.appState.invoices.forEach(inv => {
                 const n = parseInt(inv.nr);
                 if (!isNaN(n) && n > maxNr) maxNr = n;
             });
@@ -630,7 +637,6 @@
             statusText.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i> Bild wird vorbereitet...`;
 
             try {
-                // Bild im Browser auf max. 1600px verkleinern
                 const compressedDataUrl = await compressImage(file);
                 const base64Data = compressedDataUrl.split(',')[1];
                 const mimeType = 'image/jpeg';
@@ -646,7 +652,6 @@
 Antworte AUSSCHLIESSLICH im gültigen JSON-Format ohne Markdown:
 {"aussteller":"...", "reDatum":"...", "termin":null, "betrag":0.00, "zahlungsziel":null}`;
 
-                // Kaskade der aktuellen schnellen Modelle
                 const candidateModels = [
                     'gemini-2.5-flash',
                     'gemini-1.5-flash',
@@ -654,7 +659,6 @@ Antworte AUSSCHLIESSLICH im gültigen JSON-Format ohne Markdown:
                 ];
 
                 let parsed = null;
-                let lastError = '';
 
                 for (const model of candidateModels) {
                     try {
@@ -673,10 +677,7 @@ Antworte AUSSCHLIESSLICH im gültigen JSON-Format ohne Markdown:
 
                         const data = await response.json();
 
-                        if (data.error) {
-                            lastError = data.error.message || 'Überlastet';
-                            continue;
-                        }
+                        if (data.error) continue;
 
                         if (data.candidates && data.candidates[0] && data.candidates[0].content) {
                             const aiText = data.candidates[0].content.parts[0].text;
