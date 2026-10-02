@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
     <title>Beihilfe-App</title>
     
-    <!-- App-Icons & PWA-Metadaten für iPhone & iPad -->
+    <!-- App-Icons & PWA-Metadaten -->
     <link rel="icon" type="image/png" href="icon.png">
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="manifest" href="manifest.json">
@@ -34,9 +34,6 @@
     
     <!-- SheetJS für Excel-Export -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
-    <!-- Tesseract OCR für lokale Erkennung im Browser -->
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -281,7 +278,7 @@
         </div>
     </div>
 
-    <!-- MODAL: Rechnung anlegen / bearbeiten (inkl. SCANNER) -->
+    <!-- MODAL: Rechnung anlegen / bearbeiten (DIREKTER KI-SCANNER) -->
     <div id="invoiceModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs hidden flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
         <div class="bg-white rounded-t-3xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-3">
@@ -289,37 +286,29 @@
                 <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
 
-            <!-- SCANNER-BEREICH -->
-            <div class="mb-3 p-3 bg-blue-50/80 rounded-2xl border border-blue-100">
+            <!-- DIREKTER KI-SCANNER -->
+            <div class="mb-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-100">
                 <div class="flex items-center justify-between">
                     <div>
                         <span class="text-xs font-bold text-blue-900 flex items-center gap-1.5">
-                            <i class="fa-solid fa-camera text-blue-600"></i> Beleg-Scanner
+                            <i class="fa-solid fa-wand-magic-sparkles text-indigo-600"></i> KI-Rechnungsscanner
                         </span>
-                        <p class="text-[10px] text-blue-700">Foto wählen oder aufnehmen – kein Bild wird gespeichert</p>
+                        <p class="text-[10px] text-gray-500">Foto aufnehmen oder wählen – wird direkt per KI ausgelesen</p>
                     </div>
                     <div>
-                        <label for="billScanInput" class="cursor-pointer inline-flex items-center gap-1.5 bg-blue-600 active:scale-95 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-xl shadow-xs transition">
-                            <span>Foto wählen</span>
+                        <label for="billScanInput" class="cursor-pointer inline-flex items-center gap-1.5 bg-indigo-600 active:scale-95 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-2 rounded-xl shadow-xs transition">
+                            <i class="fa-solid fa-camera"></i>
+                            <span>Foto scannen</span>
                         </label>
-                        <input type="file" id="billScanInput" accept="image/*" class="hidden" onchange="handleImageSelected(event)">
+                        <input type="file" id="billScanInput" accept="image/*" class="hidden" onchange="handleDirectAiScan(event)">
                     </div>
                 </div>
 
-                <!-- Status- und Ladeleiste -->
+                <!-- Statusanzeige -->
                 <div id="scanStatusBox" class="hidden mt-2 pt-2 border-t border-blue-200/60">
-                    <div class="flex items-center justify-between text-xs font-medium text-blue-900">
-                        <span id="scanStatusText"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Beleg wird lokal gescannt...</span>
-                        <span id="scanProgressText" class="text-[10px] text-blue-700"></span>
+                    <div class="flex items-center justify-between text-xs font-medium text-indigo-900">
+                        <span id="scanStatusText"><i class="fa-solid fa-circle-notch fa-spin mr-1"></i> KI analysiert Rechnung...</span>
                     </div>
-                </div>
-
-                <!-- Optionaler KI-Joker Button -->
-                <div id="aiAssistContainer" class="hidden mt-2 pt-2 border-t border-blue-200/60 flex items-center justify-between">
-                    <span class="text-[11px] text-blue-900">Ergebnis ungenau oder unvollständig?</span>
-                    <button type="button" onclick="runAiScan()" class="text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg flex items-center gap-1 transition shadow-xs">
-                        <i class="fa-solid fa-wand-magic-sparkles"></i> Mit KI optimieren
-                    </button>
                 </div>
             </div>
 
@@ -369,7 +358,6 @@
                     </div>
                 </div>
 
-                <!-- PFLICHTFELD: Eingereicht Ja / Nein -->
                 <div>
                     <label class="block text-[11px] sm:text-xs font-bold text-gray-700 mb-1">
                         Bereits bei Beihilfe/PKV eingereicht? <span class="text-red-500">*</span>
@@ -430,7 +418,6 @@
         var invoices = [];
         var userBeihilfeRate = 70;
         var currentActiveDetailDocId = null;
-        var transientImageData = null;
 
         const firebaseConfig = {
             apiKey: "AIzaSyDOeM9ePDWeKiHSj4Mgi6c5bgUHTxMGNQM",
@@ -606,110 +593,51 @@
             return maxNr + 1;
         }
 
-        async function handleImageSelected(e) {
+        // =========================================================================
+        // DIREKTE KI-ERKENNUNG MIT BILD-KOMPRIMIERUNG & KASKADE
+        // =========================================================================
+        function compressImage(file, maxWidth = 1600, quality = 0.85) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    let w = img.width;
+                    let h = img.height;
+                    if (w > maxWidth) {
+                        h = Math.round((h * maxWidth) / w);
+                        w = maxWidth;
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    resolve(dataUrl);
+                };
+                img.onerror = reject;
+                img.src = URL.createObjectURL(file);
+            });
+        }
+
+        async function handleDirectAiScan(e) {
             const file = e.target.files[0];
             if (!file) return;
 
             const statusBox = document.getElementById('scanStatusBox');
             const statusText = document.getElementById('scanStatusText');
-            const progressText = document.getElementById('scanProgressText');
-            const aiContainer = document.getElementById('aiAssistContainer');
 
             statusBox.classList.remove('hidden');
-            aiContainer.classList.add('hidden');
-            statusText.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Bild wird vorbereitet...`;
-            progressText.innerText = '';
+            statusText.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i> Bild wird vorbereitet...`;
 
-            const reader = new FileReader();
-            reader.onload = async function(event) {
-                transientImageData = event.target.result;
-                aiContainer.classList.remove('hidden');
+            try {
+                // Bild im Browser auf max. 1600px verkleinern
+                const compressedDataUrl = await compressImage(file);
+                const base64Data = compressedDataUrl.split(',')[1];
+                const mimeType = 'image/jpeg';
 
-                try {
-                    statusText.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Lese Text lokal auf dem Smartphone...`;
-                    
-                    const result = await Tesseract.recognize(transientImageData, 'deu', {
-                        logger: m => {
-                            if (m.status === 'recognizing text') {
-                                progressText.innerText = Math.round(m.progress * 100) + '%';
-                            }
-                        }
-                    });
+                statusText.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles fa-spin mr-1.5"></i> KI liest Beleg...`;
 
-                    const fullText = result.data.text;
-                    parseAndApplyOcrText(fullText);
-
-                    statusText.innerHTML = `<i class="fa-solid fa-check text-emerald-600 mr-1"></i> Lokal gescannt. Bitte prüfen.`;
-                    progressText.innerText = '';
-                } catch (err) {
-                    console.error("OCR Fehler:", err);
-                    statusText.innerHTML = `<span class="text-amber-700">Lokaler Scan unvollständig. Nutzen Sie den KI-Button unten.</span>`;
-                }
-            };
-            reader.readAsDataURL(file);
-        }
-
-        function parseAndApplyOcrText(text) {
-            const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-
-            const dateMatches = text.match(/\b([0-3]?[0-9])[\.\/\-]([0-1]?[0-9])[\.\/\-](20[2-3][0-9]|[2-3][0-9])\b/g);
-            if (dateMatches && dateMatches.length > 0) {
-                const cleanDate = normalizeGermanDate(dateMatches[0]);
-                if (cleanDate && !document.getElementById('reDatum').value) {
-                    document.getElementById('reDatum').value = cleanDate;
-                }
-            }
-
-            const amountMatches = text.match(/([0-9]{1,4}[.,][0-9]{2})\s*(€|EUR|Euro)?/gi);
-            if (amountMatches) {
-                let maxAmount = 0;
-                amountMatches.forEach(raw => {
-                    const clean = raw.replace(/[^\d.,]/g, '').replace(',', '.');
-                    const num = parseFloat(clean);
-                    if (!isNaN(num) && num > maxAmount && num < 10000) {
-                        maxAmount = num;
-                    }
-                });
-                if (maxAmount > 0) {
-                    document.getElementById('betrag').value = maxAmount.toFixed(2);
-                }
-            }
-
-            for (let line of lines) {
-                if (line.match(/(dr\.|praxis|ärzt|klinik|labor|institut|pvs|mediserv)/i)) {
-                    document.getElementById('aussteller').value = line.substring(0, 40);
-                    break;
-                }
-            }
-        }
-
-        function normalizeGermanDate(str) {
-            const parts = str.split(/[.\/\-]/);
-            if (parts.length !== 3) return null;
-            let d = parts[0].padStart(2, '0');
-            let m = parts[1].padStart(2, '0');
-            let y = parts[2];
-            if (y.length === 2) y = '20' + y;
-            return `${y}-${m}-${d}`;
-        }
-
-        // KASKADIERTE KI-ABFRAGE MIT AUTOMATISCHEM MODELL-WECHSEL BEI LASTSPITZEN
-        async function runAiScan() {
-            if (!transientImageData) {
-                alert('Bitte wählen Sie zuerst ein Foto aus.');
-                return;
-            }
-
-            const statusBox = document.getElementById('scanStatusBox');
-            const statusText = document.getElementById('scanStatusText');
-
-            statusBox.classList.remove('hidden');
-            statusText.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles fa-spin mr-1"></i> KI analysiert die Rechnung...`;
-
-            const base64Data = transientImageData.split(',')[1];
-            const mimeType = transientImageData.split(',')[0].split(':')[1].split(';')[0];
-
-            const prompt = `Analysiere diese Arztrechnung/Beihilferechnung und extrahiere:
+                const prompt = `Analysiere diese Arztrechnung/Beihilferechnung und extrahiere:
 1. "aussteller": Name des Arztes oder der Praxis (z. B. Dr. med. Müller).
 2. "reDatum": Rechnungsdatum im Format YYYY-MM-DD.
 3. "termin": Behandlungsdatum im Format YYYY-MM-DD falls vorhanden, sonst null.
@@ -718,523 +646,38 @@
 Antworte AUSSCHLIESSLICH im gültigen JSON-Format ohne Markdown:
 {"aussteller":"...", "reDatum":"...", "termin":null, "betrag":0.00, "zahlungsziel":null}`;
 
-            // Modell-Kaskade: Bei Lastspitzen automatisch nächstes Modell probieren
-            const candidateModels = [
-                'gemini-3.8-flash',
-                'gemini-3.5-flash-lite',
-                'gemini-3.5-flash',
-                'gemini-3-flash-preview'
-            ];
+                // Kaskade der aktuellen schnellen Modelle
+                const candidateModels = [
+                    'gemini-2.5-flash',
+                    'gemini-1.5-flash',
+                    'gemini-1.5-flash-latest'
+                ];
 
-            let success = false;
-            let lastErrorMessage = '';
+                let parsed = null;
+                let lastError = '';
 
-            for (const model of candidateModels) {
-                try {
-                    statusText.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles fa-spin mr-1"></i> KI analysiert... (${model})`;
-
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{
-                                parts: [
-                                    { text: prompt },
-                                    { inline_data: { mime_type: mimeType, data: base64Data } }
-                                ]
-                            }]
-                        })
-                    });
-
-                    const data = await response.json();
-
-                    if (data.error) {
-                        lastErrorMessage = data.error.message || 'Überlastet';
-                        // Wenn 503 Überlastung oder Modell nicht verfügbar, nächstes Modell probieren
-                        continue;
-                    }
-
-                    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-                        const aiText = data.candidates[0].content.parts[0].text;
-                        const cleanJson = aiText.replace(/```json/g, '').replace(/```/g, '').trim();
-                        const parsed = JSON.parse(cleanJson);
-
-                        if (parsed.aussteller) document.getElementById('aussteller').value = parsed.aussteller;
-                        if (parsed.reDatum) document.getElementById('reDatum').value = parsed.reDatum;
-                        if (parsed.termin) document.getElementById('termin').value = parsed.termin;
-                        if (parsed.betrag) document.getElementById('betrag').value = parseFloat(parsed.betrag).toFixed(2);
-                        if (parsed.zahlungsziel) document.getElementById('zahlungsziel').value = parsed.zahlungsziel;
-
-                        statusText.innerHTML = `<i class="fa-solid fa-check text-emerald-600 mr-1"></i> Durch KI optimiert!`;
-                        success = true;
-                        break;
-                    }
-                } catch (e) {
-                    lastErrorMessage = e.message;
-                    // Bei Netzwerkfehlern nächste Variante testen
-                    continue;
-                }
-            }
-
-            if (!success) {
-                statusText.innerHTML = `<span class="text-amber-800">Server ausgelastet. Bitte in wenigen Sekunden erneut auf „Mit KI optimieren“ tippen.</span>`;
-            }
-        }
-
-        function renderList() {
-            const list = document.getElementById('invoiceList');
-            list.innerHTML = '';
-            
-            let totalSum = 0;
-            let totalLbv = 0;
-            let totalPkv = 0;
-            let totalSumPaid = 0;
-            let totalLbvPaid = 0;
-            let totalPkvPaid = 0;
-
-            const lbvFactor = userBeihilfeRate / 100;
-            const pkvFactor = (100 - userBeihilfeRate) / 100;
-
-            document.getElementById('invoiceCount').innerText = invoices.length;
-
-            if (invoices.length === 0) {
-                list.innerHTML = `<div class="p-8 text-center text-xs sm:text-sm text-gray-400">Keine Rechnungen eingetragen.<br>Klicken Sie oben auf „+ Neu“.</div>`;
-            }
-
-            invoices.forEach((inv, index) => {
-                const betrag = parseFloat(inv.betrag) || 0;
-                const lbvBetrag = betrag * lbvFactor;
-                const pkvBetrag = betrag * pkvFactor;
-
-                const isLbvPaid = Boolean(inv.lbvDate);
-                const isPkvPaid = Boolean(inv.pkvDate);
-                const displayNr = inv.nr !== undefined ? inv.nr : (index + 1);
-                const isSubmitted = inv.submitted === true || inv.submitted === 'ja';
-
-                if (isSubmitted) {
-                    totalSum += betrag;
-                    totalLbv += lbvBetrag;
-                    totalPkv += pkvBetrag;
-
-                    if (isLbvPaid) totalLbvPaid += lbvBetrag;
-                    if (isPkvPaid) totalPkvPaid += pkvBetrag;
-                    if (isLbvPaid) totalSumPaid += lbvBetrag;
-                    if (isPkvPaid) totalSumPaid += pkvBetrag;
-                }
-
-                let statusBadge = '';
-                if (isLbvPaid && isPkvPaid) {
-                    statusBadge = `<span class="inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300"><i class="fa-solid fa-check text-[9px]"></i> Erstattet</span>`;
-                } else if (isLbvPaid || isPkvPaid) {
-                    statusBadge = `<span class="inline-flex items-center text-[10px] sm:text-xs font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">Teilweise</span>`;
-                } else {
-                    statusBadge = `<span class="inline-flex items-center text-[10px] sm:text-xs font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded border border-red-300">Offen</span>`;
-                }
-
-                let rowBgClass = "";
-                let nrBadgeClass = "";
-                let titleTextClass = "";
-                let subTextClass = "";
-                let betragTextClass = "";
-                let submittedWarningBadge = "";
-
-                if (!isSubmitted) {
-                    rowBgClass = "bg-amber-300 hover:bg-amber-400/90 text-stone-950 border-b border-amber-400";
-                    nrBadgeClass = "bg-amber-400 text-stone-950 border-2 border-amber-500 font-black shadow-xs";
-                    titleTextClass = "text-stone-950 font-black";
-                    subTextClass = "text-stone-800 font-semibold";
-                    betragTextClass = "text-stone-950 font-black";
-                    submittedWarningBadge = `<span class="inline-flex items-center gap-1 text-[10px] sm:text-xs font-black text-amber-950 bg-amber-400/90 px-1.5 py-0.5 rounded-md mt-0.5 border border-amber-500 shadow-2xs"><i class="fa-solid fa-triangle-exclamation text-amber-900"></i> Noch nicht eingereicht</span>`;
-                } else {
-                    rowBgClass = "bg-white hover:bg-blue-50/40 text-gray-800";
-                    nrBadgeClass = "bg-gray-100 text-gray-700 border-gray-200 font-bold";
-                    titleTextClass = "text-gray-900 font-semibold";
-                    subTextClass = "text-gray-400";
-                    betragTextClass = "text-gray-900 font-black";
-                    submittedWarningBadge = "";
-                }
-
-                const hasNotes = Boolean(inv.notes && inv.notes.trim() !== '');
-                const notesIcon = hasNotes ? `<i class="fa-regular fa-note-sticky ${isSubmitted ? 'text-amber-500' : 'text-stone-900'} ml-1 text-xs" title="Notiz vorhanden"></i>` : '';
-
-                const item = document.createElement('div');
-                item.className = `p-3 sm:p-4 ${rowBgClass} active:opacity-85 transition flex items-center justify-between cursor-pointer`;
-                item.onclick = () => openDetailModal(inv.id);
-                item.innerHTML = `
-                    <div class="flex items-center gap-2.5 sm:gap-4 min-w-0">
-                        <span class="w-7 h-7 sm:w-9 sm:h-9 shrink-0 rounded-xl ${nrBadgeClass} text-xs sm:text-sm flex items-center justify-center border">
-                            ${displayNr}
-                        </span>
-                        <div class="min-w-0">
-                            <p class="text-xs sm:text-base ${titleTextClass} truncate leading-tight flex items-center">
-                                <span class="truncate">${inv.aussteller}</span>
-                                ${notesIcon}
-                            </p>
-                            <p class="text-[11px] sm:text-xs ${subTextClass} mt-0.5 truncate">Re.-Dat: <span class="${isSubmitted ? 'text-gray-600 font-medium' : 'text-stone-900 font-bold'}">${formatDateDE(inv.reDatum) || '-'}</span></p>
-                            ${submittedWarningBadge}
-                        </div>
-                    </div>
-
-                    <div class="text-right shrink-0 ml-2">
-                        <p class="text-xs sm:text-base ${betragTextClass} leading-tight">${betrag.toFixed(2)} €</p>
-                        <div class="mt-1 flex justify-end">${statusBadge}</div>
-                    </div>
-                `;
-                list.appendChild(item);
-            });
-
-            const totalOpen = Math.max(0, totalSum - totalSumPaid);
-            document.getElementById('totalSum').innerText = totalSum.toFixed(2) + ' €';
-            document.getElementById('totalOpen').innerText = totalOpen.toFixed(2) + ' €';
-            document.getElementById('totalPaid').innerText = totalSumPaid.toFixed(2) + ' €';
-
-            document.getElementById('totalLbv').innerText = totalLbv.toFixed(2) + ' €';
-            document.getElementById('totalLbvPaid').innerText = totalLbvPaid.toFixed(2) + ' €';
-            document.getElementById('totalPkv').innerText = totalPkv.toFixed(2) + ' €';
-            document.getElementById('totalPkvPaid').innerText = totalPkvPaid.toFixed(2) + ' €';
-        }
-
-        function openDetailModal(docId) {
-            const inv = invoices.find(i => i.id === docId);
-            if (!inv) return;
-            currentActiveDetailDocId = docId;
-
-            const lbvPct = userBeihilfeRate;
-            const pkvPct = 100 - userBeihilfeRate;
-            const betrag = parseFloat(inv.betrag) || 0;
-            const lbvBetrag = betrag * (lbvPct / 100);
-            const pkvBetrag = betrag * (pkvPct / 100);
-            const isSubmitted = inv.submitted === true || inv.submitted === 'ja';
-
-            document.getElementById('detailNrBadge').innerText = `Vorgang Nr. ${inv.nr || '-'}`;
-            
-            const subBadge = document.getElementById('detailSubmittedBadge');
-            const subBtn = document.getElementById('toggleSubmittedBtn');
-            if (isSubmitted) {
-                subBadge.className = "text-[10px] font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded-md";
-                subBadge.innerText = "Eingereicht: Ja";
-                subBtn.className = "text-xs font-semibold px-2.5 py-1 rounded-lg bg-green-100 text-green-800 hover:bg-green-200";
-                subBtn.innerHTML = `<i class="fa-solid fa-check mr-1"></i> Eingereicht (Klick zum Ändern)`;
-            } else {
-                subBadge.className = "text-[10px] font-bold bg-amber-200 text-amber-950 px-2 py-0.5 rounded-md border border-amber-300";
-                subBadge.innerText = "Eingereicht: Nein";
-                subBtn.className = "text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-300 text-stone-950 hover:bg-amber-400 border border-amber-400";
-                subBtn.innerHTML = `<i class="fa-solid fa-clock mr-1"></i> Noch offen (Klick für Ja)`;
-            }
-
-            document.getElementById('detailAussteller').innerText = inv.aussteller;
-            document.getElementById('detailReDatum').innerText = `Rechnungsdatum: ${formatDateDE(inv.reDatum) || '-'}`;
-            document.getElementById('detailBetrag').innerText = `${betrag.toFixed(2)} €`;
-
-            document.getElementById('detailTermin').innerText = formatDateDE(inv.termin) || '-';
-            document.getElementById('detailZahlungsziel').innerText = formatDateDE(inv.zahlungsziel) || '-';
-            document.getElementById('detailBezahltAm').innerText = formatDateDE(inv.bezahltAm) || 'Noch nicht bezahlt';
-
-            const notesContainer = document.getElementById('detailNotesContainer');
-            if (inv.notes && inv.notes.trim() !== '') {
-                document.getElementById('detailNotesText').innerText = inv.notes;
-                notesContainer.classList.remove('hidden');
-            } else {
-                notesContainer.classList.add('hidden');
-            }
-
-            document.getElementById('detailLbvTitle').innerText = `LBV (${lbvPct}%)`;
-            document.getElementById('detailLbvAmount').innerText = `${lbvBetrag.toFixed(2)} €`;
-            const lbvBtn = document.getElementById('detailLbvBtn');
-            if (inv.lbvDate) {
-                lbvBtn.className = "text-xs px-2.5 py-1.5 rounded-lg font-semibold bg-emerald-600 text-white shadow-xs";
-                lbvBtn.innerHTML = `<i class="fa-solid fa-check text-[10px] mr-1"></i> Erhalten: ${formatDateDE(inv.lbvDate)}`;
-            } else {
-                lbvBtn.className = "text-xs px-2.5 py-1.5 rounded-lg font-semibold bg-white text-blue-700 border border-blue-200";
-                lbvBtn.innerText = "+ Datum eintragen";
-            }
-
-            document.getElementById('detailPkvTitle').innerText = `PKV (${pkvPct}%)`;
-            document.getElementById('detailPkvAmount').innerText = `${pkvBetrag.toFixed(2)} €`;
-            const pkvBtn = document.getElementById('detailPkvBtn');
-            if (inv.pkvDate) {
-                pkvBtn.className = "text-xs px-2.5 py-1.5 rounded-lg font-semibold bg-emerald-600 text-white shadow-xs";
-                pkvBtn.innerHTML = `<i class="fa-solid fa-check text-[10px] mr-1"></i> Erhalten: ${formatDateDE(inv.pkvDate)}`;
-            } else {
-                pkvBtn.className = "text-xs px-2.5 py-1.5 rounded-lg font-semibold bg-white text-indigo-700 border border-indigo-200";
-                pkvBtn.innerText = "+ Datum eintragen";
-            }
-
-            document.getElementById('detailEditBtn').onclick = () => {
-                closeDetailModal();
-                openEditModal(docId);
-            };
-            document.getElementById('detailDeleteBtn').onclick = () => {
-                closeDetailModal();
-                deleteInvoice(docId);
-            };
-
-            document.getElementById('detailViewModal').classList.remove('hidden');
-        }
-
-        function closeDetailModal() {
-            document.getElementById('detailViewModal').classList.add('hidden');
-            currentActiveDetailDocId = null;
-        }
-
-        async function toggleSubmittedDirect() {
-            if (!currentActiveDetailDocId || !currentUser) return;
-            const inv = invoices.find(i => i.id === currentActiveDetailDocId);
-            if (!inv) return;
-            
-            const currentSub = inv.submitted === true || inv.submitted === 'ja';
-            const newSub = !currentSub;
-            
-            await db.collection('users').doc(currentUser.uid).collection('invoices').doc(currentActiveDetailDocId).update({
-                submitted: newSub
-            });
-        }
-
-        function triggerPayoutFromDetail(type) {
-            if (!currentActiveDetailDocId) return;
-            openPayoutModal(currentActiveDetailDocId, type);
-        }
-
-        function resetScannerState() {
-            transientImageData = null;
-            document.getElementById('billScanInput').value = '';
-            document.getElementById('scanStatusBox').classList.add('hidden');
-            document.getElementById('aiAssistContainer').classList.add('hidden');
-        }
-
-        function openModal() {
-            document.getElementById('editInvoiceId').value = '';
-            document.getElementById('oldInvoiceNumber').value = '';
-            document.getElementById('invoiceModalTitle').innerText = 'Neue Rechnung erfassen';
-            document.getElementById('saveInvoiceBtn').innerText = 'Speichern';
-            document.getElementById('invoiceForm').reset();
-            document.getElementById('notes').value = '';
-            document.getElementById('submitted').value = 'nein';
-            document.getElementById('invoiceNumber').value = getNextInvoiceNumber();
-            resetScannerState();
-            document.getElementById('invoiceModal').classList.remove('hidden');
-        }
-
-        function openEditModal(docId) {
-            const inv = invoices.find(i => i.id === docId);
-            if (!inv) return;
-
-            document.getElementById('editInvoiceId').value = docId;
-            document.getElementById('oldInvoiceNumber').value = inv.nr !== undefined ? inv.nr : 1;
-            document.getElementById('invoiceModalTitle').innerText = 'Rechnung bearbeiten';
-            document.getElementById('saveInvoiceBtn').innerText = 'Aktualisieren';
-
-            document.getElementById('invoiceNumber').value = inv.nr !== undefined ? inv.nr : 1;
-            document.getElementById('termin').value = inv.termin || '';
-            document.getElementById('reDatum').value = inv.reDatum || '';
-            document.getElementById('aussteller').value = inv.aussteller || '';
-            document.getElementById('betrag').value = inv.betrag || '';
-            document.getElementById('zahlungsziel').value = inv.zahlungsziel || '';
-            document.getElementById('bezahltAm').value = inv.bezahltAm || '';
-            document.getElementById('notes').value = inv.notes || '';
-            
-            const isSub = inv.submitted === true || inv.submitted === 'ja';
-            document.getElementById('submitted').value = isSub ? 'ja' : 'nein';
-
-            resetScannerState();
-            document.getElementById('invoiceModal').classList.remove('hidden');
-        }
-
-        function closeModal() {
-            document.getElementById('invoiceModal').classList.add('hidden');
-            document.getElementById('invoiceForm').reset();
-            resetScannerState();
-        }
-
-        function setTodayPaid() {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('bezahltAm').value = today;
-        }
-
-        async function saveInvoice(e) {
-            e.preventDefault();
-            if (!currentUser) return;
-
-            const editId = document.getElementById('editInvoiceId').value;
-            const targetNr = parseInt(document.getElementById('invoiceNumber').value) || 1;
-            const oldNr = document.getElementById('oldInvoiceNumber').value ? parseInt(document.getElementById('oldInvoiceNumber').value) : null;
-            const isSubmittedVal = document.getElementById('submitted').value === 'ja';
-
-            const invoiceData = {
-                nr: targetNr,
-                termin: document.getElementById('termin').value,
-                reDatum: document.getElementById('reDatum').value,
-                aussteller: document.getElementById('aussteller').value,
-                betrag: parseFloat(document.getElementById('betrag').value),
-                zahlungsziel: document.getElementById('zahlungsziel').value,
-                bezahltAm: document.getElementById('bezahltAm').value || null,
-                submitted: isSubmittedVal,
-                notes: document.getElementById('notes').value.trim() || null
-            };
-
-            const userInvoicesRef = db.collection('users').doc(currentUser.uid).collection('invoices');
-            const batch = db.batch();
-
-            if (editId) {
-                if (oldNr !== null && oldNr !== targetNr) {
-                    if (targetNr < oldNr) {
-                        invoices.forEach(inv => {
-                            if (inv.id !== editId && inv.nr >= targetNr && inv.nr < oldNr) {
-                                batch.update(userInvoicesRef.doc(inv.id), { nr: inv.nr + 1 });
-                            }
+                for (const model of candidateModels) {
+                    try {
+                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: [{
+                                    parts: [
+                                        { text: prompt },
+                                        { inline_data: { mime_type: mimeType, data: base64Data } }
+                                    ]
+                                }]
+                            })
                         });
-                    } else {
-                        invoices.forEach(inv => {
-                            if (inv.id !== editId && inv.nr > oldNr && inv.nr <= targetNr) {
-                                batch.update(userInvoicesRef.doc(inv.id), { nr: inv.nr - 1 });
-                            }
-                        });
-                    }
-                }
-                batch.update(userInvoicesRef.doc(editId), invoiceData);
-            } else {
-                invoices.forEach(inv => {
-                    if (inv.nr >= targetNr) {
-                        batch.update(userInvoicesRef.doc(inv.id), { nr: inv.nr + 1 });
-                    }
-                });
 
-                invoiceData.lbvDate = null;
-                invoiceData.pkvDate = null;
-                invoiceData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                        const data = await response.json();
 
-                const newDocRef = userInvoicesRef.doc();
-                batch.set(newDocRef, invoiceData);
-            }
+                        if (data.error) {
+                            lastError = data.error.message || 'Überlastet';
+                            continue;
+                        }
 
-            await batch.commit();
-            closeModal();
-        }
-
-        async function deleteInvoice(docId) {
-            const invToDelete = invoices.find(i => i.id === docId);
-            if (!invToDelete) return;
-
-            if (confirm(`Diesen Vorgang (Nr. ${invToDelete.nr}) wirklich löschen?\nAlle nachfolgenden Nummern rücken automatisch nach.`)) {
-                const deletedNr = invToDelete.nr;
-                const userInvoicesRef = db.collection('users').doc(currentUser.uid).collection('invoices');
-                const batch = db.batch();
-
-                batch.delete(userInvoicesRef.doc(docId));
-
-                invoices.forEach(inv => {
-                    if (inv.id !== docId && inv.nr > deletedNr) {
-                        batch.update(userInvoicesRef.doc(inv.id), { nr: inv.nr - 1 });
-                    }
-                });
-
-                await batch.commit();
-            }
-        }
-
-        function openPayoutModal(docId, type) {
-            const inv = invoices.find(i => i.id === docId);
-            if (!inv) return;
-
-            const lbvPct = userBeihilfeRate;
-            const pkvPct = 100 - userBeihilfeRate;
-
-            document.getElementById('payoutDocId').value = docId;
-            document.getElementById('payoutType').value = type;
-            document.getElementById('payoutModalTitle').innerText = (type === 'lbv' ? `LBV (${lbvPct}%) Eingang` : `PKV (${pkvPct}%) Eingang`);
-            document.getElementById('payoutDateInput').value = type === 'lbv' ? (inv.lbvDate || '') : (inv.pkvDate || '');
-            
-            document.getElementById('payoutModal').classList.remove('hidden');
-        }
-
-        function closePayoutModal() {
-            document.getElementById('payoutModal').classList.add('hidden');
-        }
-
-        function setTodayPayout() {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('payoutDateInput').value = today;
-        }
-
-        async function savePayout(e) {
-            e.preventDefault();
-            const docId = document.getElementById('payoutDocId').value;
-            const type = document.getElementById('payoutType').value;
-            const dateVal = document.getElementById('payoutDateInput').value;
-
-            const updateData = {};
-            if (type === 'lbv') updateData.lbvDate = dateVal;
-            if (type === 'pkv') updateData.pkvDate = dateVal;
-
-            await db.collection('users').doc(currentUser.uid).collection('invoices').doc(docId).update(updateData);
-            closePayoutModal();
-        }
-
-        async function clearPayout() {
-            const docId = document.getElementById('payoutDocId').value;
-            const type = document.getElementById('payoutType').value;
-
-            const updateData = {};
-            if (type === 'lbv') updateData.lbvDate = null;
-            if (type === 'pkv') updateData.pkvDate = null;
-
-            await db.collection('users').doc(currentUser.uid).collection('invoices').doc(docId).update(updateData);
-            closePayoutModal();
-        }
-
-        function exportToExcel() {
-            if (!invoices || invoices.length === 0) {
-                alert('Keine Rechnungen vorhanden.');
-                return;
-            }
-
-            const lbvPct = userBeihilfeRate;
-            const pkvPct = 100 - userBeihilfeRate;
-            const lbvFactor = lbvPct / 100;
-            const pkvFactor = pkvPct / 100;
-
-            const excelData = invoices.map((inv, idx) => {
-                const betrag = parseFloat(inv.betrag) || 0;
-                const isSub = inv.submitted === true || inv.submitted === 'ja';
-                return {
-                    "Nr.": inv.nr !== undefined ? inv.nr : (idx + 1),
-                    "Eingereicht?": isSub ? "Ja" : "Nein",
-                    "Termin": formatDateDE(inv.termin),
-                    "Re.-Datum": formatDateDE(inv.reDatum),
-                    "Rechnungsaussteller": inv.aussteller,
-                    "Rechnungsbetrag (€)": Number(betrag.toFixed(2)),
-                    "Zahlungsziel": formatDateDE(inv.zahlungsziel),
-                    "Bezahlt am (an Arzt)": formatDateDE(inv.bezahltAm),
-                    [`LBV Erwartet (${lbvPct}% €)`]: Number((betrag * lbvFactor).toFixed(2)),
-                    "LBV Erstattet am": formatDateDE(inv.lbvDate),
-                    [`PKV Erwartet (${pkvPct}% €)`]: Number((betrag * pkvFactor).toFixed(2)),
-                    "PKV Erstattet am": formatDateDE(inv.pkvDate),
-                    "Notizen": inv.notes || ''
-                };
-            });
-
-            const worksheet = XLSX.utils.json_to_sheet(excelData);
-            worksheet['!cols'] = [
-                { wch: 8 },  // Nr
-                { wch: 14 }, // Eingereicht
-                { wch: 12 }, // Termin
-                { wch: 12 }, // Re-Datum
-                { wch: 28 }, // Aussteller
-                { wch: 18 }, // Betrag
-                { wch: 14 }, // Zahlungsziel
-                { wch: 20 }, // Bezahlt am
-                { wch: 20 }, // LBV Erwartet
-                { wch: 18 }, // LBV Erstattet
-                { wch: 20 }, // PKV Erwartet
-                { wch: 18 }, // PKV Erstattet
-                { wch: 35 }  // Notizen
-            ];
-
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Beihilfe");
-            const today = new Date().toISOString().split('T')[0];
-            XLSX.writeFile(workbook, `Beihilfe_${today}.xlsx`);
-        }
-    </script>
-</body>
-</html>
+                        if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+                            const aiText = data.candidates[0].content.parts[0].text;
+                            const cleanJson = aiText.replace(/```json/g, '').replace(/
